@@ -33,6 +33,20 @@ dedicated tests — look at `tests/core/chunk-scheduler.test.ts` and
 zero errors, and `any` is not an escape hatch — if the types get in the way,
 that's usually a sign the design needs another look, not a cast.
 
+## 4. React 18 is supported, so it's tested
+
+The peer range is `^18.0.0 || ^19.0.0`. The dev dependency is React 19; CI
+also runs the type check, the whole suite, and a packed-package smoke test
+on React 18, pinned in `compat/react18` with its own lockfile. Anything
+newer than React 18.0 (an API added in 19.x, say) needs a fallback — see
+`src/react/use-effect-event.ts` for the pattern.
+
+```sh
+npm ci --prefix compat/react18      # once
+npm run typecheck:react18
+REACT_VERSION=18 npm test           # bash; PowerShell: $env:REACT_VERSION=18; npm test
+```
+
 ## Setup
 
 ```sh
@@ -51,7 +65,7 @@ history. Human contributors are, of course, entirely welcome.
 
 ## Bundle size
 
-`npm run size` runs [size-limit](https://github.com/ai/size-limit) against
+`npm run size` runs [size-limit](https://www.npmjs.com/package/size-limit) against
 the budgets in `package.json`'s `size-limit` field. A budget increase needs a
 real reason in the PR description — a correctness fix that costs a few bytes
 is fine; an increase to make room for something that could be written more

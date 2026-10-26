@@ -40,3 +40,40 @@ jobs:
           name: dist
           path: dist
           retention-days: 7
+
+  # The peer range promises React 18, so React 18 gets the same scrutiny:
+  # types, the whole test suite, and the packed package loaded the way a
+  # consumer loads it (import and require). React 18 comes from
+  # compat/react18 and its own lockfile — no job installs unpinned versions.
+  react18:
+    name: React 18 — types, tests, packed-package smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            compat/react18/package-lock.json
+      - run: npm ci
+      - run: npm ci --prefix compat/react18 --ignore-scripts
+      - name: Types against React 18
+        run: npm run typecheck:react18
+      - name: Test suite on React 18
+        run: npm test
+        env:
+          # tests/react-version.test.ts fails unless this really took effect.
+          REACT_VERSION: '18'
+      - run: npm run build
+      - run: npm pack --pack-destination compat/react18
+      - name: Packed package on React 18 (import + require)
+        working-directory: compat/react18
+        run: |
+          npm install --no-save --ignore-scripts ./react-inp-chunker-*.tgz
+          # `timeout`: a leaked handle (an unclosed MessagePort, say) shows up
+          # as a process that finishes its work and then never exits.
+          timeout 60 node consumer-smoke.mjs
+          timeout 60 node consumer-smoke.cjs

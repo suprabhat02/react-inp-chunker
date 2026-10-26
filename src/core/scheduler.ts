@@ -90,6 +90,11 @@ function yieldViaMessageChannel(): Promise<void> {
     // microseconds; a silently-hung promise is a production incident.
     const channel = new MessageChannel();
     channel.port1.onmessage = () => {
+      // Closed the moment its one message lands. A port with a listener is
+      // a live handle: in Node it keeps the process from ever exiting (a
+      // CLI script would finish its work and then hang), and in a browser
+      // without scheduler.yield() a long task opens hundreds of these.
+      channel.port1.close();
       resolve();
     };
     channel.port2.postMessage(null);

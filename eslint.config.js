@@ -50,8 +50,14 @@ export default defineConfig(
     },
   },
   {
-    files: ['**/*.js', '**/*.mjs'],
+    files: ['**/*.js', '**/*.mjs', '**/*.cjs'],
     extends: [tseslint.configs.disableTypeChecked],
+  },
+  {
+    // CommonJS on purpose: compat/react18/consumer-smoke.cjs checks the
+    // package's `require` entry points the way a CommonJS consumer loads them.
+    files: ['**/*.cjs'],
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
   {
     files: ['src/core/**'],

@@ -1,0 +1,13 @@
+{
+  // Type-checks the library and its tests against React 18's types from
+  // compat/react18 (npm ci --prefix compat/react18 first).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "react": ["./compat/react18/node_modules/@types/react"],
+      "react/*": ["./compat/react18/node_modules/@types/react/*"],
+      "react-dom": ["./compat/react18/node_modules/@types/react-dom"],
+      "react-dom/*": ["./compat/react18/node_modules/@types/react-dom/*"]
+    }
+  }
+}

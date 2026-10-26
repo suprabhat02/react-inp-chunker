@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useEffectEvent,
-  useState,
-  useSyncExternalStore,
-} from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 
 import type { ChunkStatus } from '../core/chunk-machine.js';
 import { createDeferredTask } from '../core/deferred-task.js';
@@ -14,6 +8,7 @@ import type {
   DeferredTaskSnapshot,
 } from '../core/deferred-task.js';
 import { createTaskController } from './task-controller.js';
+import { useEffectEvent } from './use-effect-event.js';
 
 export interface UseDeferredTaskOptions {
   /** Max ms of uninterrupted work before yielding. Default 5. */

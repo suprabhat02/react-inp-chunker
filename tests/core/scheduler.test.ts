@@ -150,6 +150,15 @@ describe('yieldToMain()', () => {
     expect(order.sort()).toEqual(['a', 'b']);
   });
 
+  it('closes each message-channel port once its message arrives, so no open handle outlives the yield', async () => {
+    // Regression test: an open port with a listener is a live handle — in
+    // Node it kept the process alive forever after the work was done.
+    const close = vi.spyOn(MessagePort.prototype, 'close');
+    await yieldToMain({ strategy: 'message-channel' });
+    await yieldToMain({ strategy: 'message-channel' });
+    expect(close).toHaveBeenCalledTimes(2);
+  });
+
   it('a large number of concurrent yields all settle', async () => {
     const calls = Array.from({ length: 50 }, () => yieldToMain());
     await expect(Promise.all(calls)).resolves.toHaveLength(50);

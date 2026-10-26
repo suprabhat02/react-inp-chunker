@@ -1,16 +1,10 @@
-import {
-  useCallback,
-  useEffect,
-  useEffectEvent,
-  useMemo,
-  useState,
-  useSyncExternalStore,
-} from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
 import type { ChunkStatus } from '../core/chunk-machine.js';
 import { createChunkScheduler } from '../core/chunk-scheduler.js';
 import type { ChunkScheduler, ChunkSnapshot } from '../core/chunk-scheduler.js';
 import { createTaskController } from './task-controller.js';
+import { useEffectEvent } from './use-effect-event.js';
 
 export interface UseChunkedTaskOptions<T, R> {
   /** Max ms of uninterrupted work before yielding. Default 5. */
