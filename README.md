@@ -1,127 +1,112 @@
-# Dashboard UX Lab
+# react-inp-chunker
 
-**An interactive lab for how dashboards should behave when data isn’t perfect:**
-loading, slow responses, empty results, failures with retry, and restricted access.
+**Headless React/TypeScript hooks that chunk heavy synchronous work and yield to
+the main thread, so a long update never costs you Interaction to Next Paint (INP).**
 
-The same dashboard is built twice, in **React** and in **framework-free
-TypeScript**, from one shared behaviour spec and verified by one shared test suite,
-and the two run [side by side](https://lab.suprabhat-dev.com/compare/) so they can be
-compared on equal terms.
+Processing a big array, running a multi-phase algorithm, or rendering a large
+canvas frame-by-frame inside a React update blocks the main thread for as long
+as it takes — every click, keypress, and tap queued behind it waits too. This
+package breaks that work into small slices and hands control back to the
+browser between them, using the best yielding primitive the current runtime
+actually has:
 
-**The goal:** make a dashboard's behaviour easier to see, hear and test than any
-browser developer tool does today.
+1. [`scheduler.yield()`](https://developer.mozilla.org/en-US/docs/Web/API/Scheduler/yield) —
+   the purpose-built API, Baseline across Chromium and Firefox.
+2. `MessageChannel` — not clamped to the ~4ms floor nested `setTimeout` calls
+   get, so it yields sooner.
+3. `setTimeout(0)` — the universal fallback.
 
-Available in **English**, **Español** and **العربية** (right-to-left), with every
-feature shipped in all three — enforced by the build ([ADR 0004](docs/decisions/0004-internationalisation.md)).
+No dependencies beyond React itself. Nothing here touches the DOM directly, so
+the scheduling engine (`react-inp-chunker/core`) works just as well outside
+React — a Node script, a Web Worker, anywhere a long synchronous task would
+otherwise block something else.
 
-**Live (after first deploy):** https://lab.suprabhat-dev.com · **Author:** [Suprabhat Kumar](https://suprabhat-dev.com)
+## Install
+
+```sh
+npm install react-inp-chunker
+```
+
+Requires React 18 or 19 as a peer dependency.
+
+## Usage
+
+### Chunking an array — `useChunkedTask`
+
+```tsx
+import { useChunkedTask } from 'react-inp-chunker';
+
+function RowScorer({ rows }: { rows: Row[] }) {
+  const { status, processed, total, results, isDone, pause, resume, cancel } =
+    useChunkedTask(rows, (row) => expensiveScore(row));
+
+  if (!isDone) {
+    return (
+      <p>
+        Scoring… {processed}/{total}
+      </p>
+    );
+  }
+
+  return <ResultsTable rows={results} />;
+}
+```
+
+`processItem` is called once per item, each call in its own chunk, yielding to
+the browser whenever a time slice (5ms by default) runs out or the browser
+reports pending input. Pass a fresh closure every render — it's always the
+latest one that runs, without restarting the task. What _does_ restart it is
+`rows` becoming a new array reference, or `timeSliceMs`/`autoStart` changing.
+
+### Chunking arbitrary work — `useDeferredTask`
+
+For work that isn't "one function applied to every item of an array" — a
+multi-phase algorithm, a big canvas render — mark your own safe-to-pause
+checkpoints with a generator:
+
+```tsx
+import { useDeferredTask } from 'react-inp-chunker';
+
+function* renderFrames(frameCount: number) {
+  for (let i = 0; i < frameCount; i++) {
+    renderOneExpensiveFrame(i);
+    yield; // "it's safe to pause here if we're over budget"
+  }
+  return frameCount;
+}
+
+function FrameRenderer({ frameCount }: { frameCount: number }) {
+  const { isDone, value } = useDeferredTask(() => renderFrames(frameCount), [frameCount]);
+  return isDone ? <p>Rendered {value} frames.</p> : <p>Rendering…</p>;
+}
+```
+
+### Outside React — `react-inp-chunker/core`
+
+```ts
+import { createChunkScheduler } from 'react-inp-chunker/core';
+
+const scheduler = createChunkScheduler({
+  items: rows,
+  processItem: (row) => expensiveScore(row),
+});
+scheduler.start();
+const { status, results } = await scheduler.settled;
+```
+
+Both engines expose `start()`, `pause()`, `resume()`, `cancel()`, a
+`subscribe()`/`getSnapshot()` pair, and a `settled` promise that always
+resolves — never rejects — with `'done' | 'cancelled' | 'error'`. An
+`AbortSignal` can drive cancellation too.
 
 ## Status
 
-| Part                                          | Status                                                                                                                             |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Shared spec, mock API, copy, CSS              | ✅ Done                                                                                                                            |
-| React implementation                          | ✅ Done                                                                                                                            |
-| Playground: controls + inspector              | ✅ Done                                                                                                                            |
-| English, Spanish, Arabic (RTL)                | ✅ Done (Spanish/Arabic await native review)                                                                                       |
-| Scenario guides                               | ✅ Done                                                                                                                            |
-| Vanilla implementation                        | ✅ Done (16 KB gz; pixel-identical to React)                                                                                       |
-| Unit + e2e + axe tests                        | ✅ One suite, both builds, three engines, in CI                                                                                    |
-| Side-by-side comparison page                  | ✅ Done ([ADR 0007](docs/decisions/0007-side-by-side-comparison.md))                                                               |
-| Screen reader script, checked in CI           | ✅ Done ([ADR 0008](docs/decisions/0008-computed-screen-reader-script.md))                                                         |
-| Screen reader runs and native review          | Open: [results form](https://lab.suprabhat-dev.com/accessibility/screen-readers/); native review skipped for now (no reviewer yet) |
-| Request timeline you can scrub                | ✅ Done ([ADR 0009](docs/decisions/0009-time-axis-timeline-and-test-export.md))                                                    |
-| Export any scenario as a Playwright test      | ✅ Done: 36 published tests, run in CI against both builds                                                                         |
-| Bring your own API responses, more components | ⏳ Next                                                                                                                            |
-
-## What you can do in the lab
-
-- Pick a scenario preset, or tune **latency**, **failure mode**, **role** and **plan filter**.
-- Watch the **inspector**: every state transition, every live-region announcement and
-  every programmatic focus move.
-- Share any combination: settings live in the URL.
-- Scrub the **request timeline**: what was on screen, what a screen reader had just
-  heard and where focus was, at any moment of the run.
-- **Export** any scenario, or your own settings, as a ready-made Playwright test.
-- Open **Compare** to run both builds at once: one set of controls, live start-up
-  time and download size, and a step-by-step check that both behave the same.
-
-## Architecture
-
-```
-src/
-  spec/           Framework-free contract: types, mock data + API, timings, i18n catalogues,
-                  formatting, chart geometry, table sorting, lab event protocol
-  impl-react/     React 19 implementation (reducer + effect, no fetching library)
-  impl-vanilla/   Framework-free implementation (DOM + TypeScript, rendering by region)
-  lab/            Playground chrome (vanilla TS): controls, explanation, inspector,
-                  and the comparison page (host + in-frame bridge)
-  styles/         Shared CSS (cascade layers, OKLCH tokens, container queries)
-  pages/          Astro pages: home, lab, compare, embedded builds, guides, accessibility
-tests/
-  unit/           Vitest: spec, shared reducer and rules
-  e2e/            Playwright + axe: one suite, run against every implementation
-docs/             Behaviour spec, decision log, manual testing checklist
-```
-
-Boundaries are enforced by ESLint (see [ADR 0002](docs/decisions/0002-implementation-boundaries.md)):
-`spec/` imports nothing, implementations import only `spec/`, and neither imports the other.
-Behaviour decisions (state, what to show, announce and focus) live in `spec/` and are
-shared by both builds ([ADR 0006](docs/decisions/0006-vanilla-architecture-and-shared-rules.md));
-how they differ in implementation is tracked in the [divergence log](docs/divergence-log.md).
-
-**Runtime dependencies:** React + React DOM (React page only) and two self-hosted
-variable fonts (Bricolage Grotesque, Geist Mono). No UI, chart, state or CSS library.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md): every change ships in all three languages.
-
-## Develop
-
-Requires Node 22.12+.
-
-```bash
-npm install
-npm run dev          # http://localhost:4321
-npm test             # unit tests
-npm run build        # type check + static build
-npm run test:e2e     # Playwright (builds must exist: run `npm run build` first)
-npm run verify       # everything CI runs
-```
-
-## Quality bar
-
-- Zero serious/critical axe violations in every scenario, in light and dark themes.
-- Same e2e suite passes for every implementation in Chromium, Firefox and WebKit.
-- JavaScript budgets enforced in CI (`scripts/size-budget.mjs`).
-- Automated checks are a floor, not proof: manual results are published at
-  [/accessibility/](https://lab.suprabhat-dev.com/accessibility/), including known issues.
-
-## Deploy
-
-GitHub Actions builds and deploys to GitHub Pages after CI passes on `main`.
-Custom domain: `public/CNAME` → `lab.suprabhat-dev.com` (DNS: `CNAME lab → suprabhat02.github.io`).
-
-## Search and sharing
-
-- Every page carries a canonical URL, `hreflang` alternates for all three
-  languages, a description of at most 160 characters (enforced by a unit test),
-  and schema.org JSON-LD: the site, its author and the page, plus a
-  `WebApplication` for the lab and a `TechArticle` with breadcrumbs for each
-  scenario guide (`src/site/seo.ts`).
-- Social cards (`public/og/<locale>.png`) and app icons are generated once and
-  committed: `CHROMIUM_PATH=… npm run og`.
-- The sitemap (with `hreflang`) is built by `@astrojs/sitemap`; `robots.txt`
-  points to it.
-
-## Feedback
-
-The most useful contribution is disagreement with the spec. If a behaviour in
-[docs/spec.md](docs/spec.md) seems wrong for real users, please open an issue.
+Phase 1 — the core scheduling engine, both hooks, and an exhaustive test
+suite (state-machine truth table, every yield fallback path, pause/resume/
+cancel race conditions, reentrancy, SSR safety) at 100% statement, branch,
+function, and line coverage. See [CONTRIBUTING.md](CONTRIBUTING.md) for how
+the project is organised and verified.
 
 ## License
 
-MIT. Tool logos are from [devicon](https://devicon.dev/) (MIT,
-`src/assets/logos/LICENSE-devicon.txt`); the marks belong to their owners.
-Illustrations by [Storyset](https://storyset.com/).
+MIT © [Suprabhat Kumar](https://suprabhat-dev.com)
