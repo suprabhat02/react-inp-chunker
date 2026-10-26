@@ -44,10 +44,10 @@ npm run verify        # lint + format + typecheck + test:coverage + build + size
 ## Commit authorship
 
 Every commit in this repository is authored by a person, under their own
-name — no AI tool attribution of any kind (author, committer, co-author
-trailer, or "generated with" footer). CI fails the build otherwise
-(`scripts/check-authorship.mjs`), checking the full commit history. Human
-contributors are, of course, entirely welcome.
+name — no automated-tool attribution of any kind (author, committer,
+co-author trailer, or "generated with" footer). CI fails the build
+otherwise (`scripts/check-authorship.mjs`), checking the full commit
+history. Human contributors are, of course, entirely welcome.
 
 ## Bundle size
 
