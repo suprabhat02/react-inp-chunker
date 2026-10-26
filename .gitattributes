@@ -1,0 +1,12 @@
+# Force LF everywhere, regardless of a contributor's local core.autocrlf
+# setting. Without this, a Windows checkout can materialize every text
+# file with CRLF line endings, which Prettier (and CI, which always runs
+# on Linux) then flags as a formatting violation on an otherwise-untouched
+# file — exactly the class of "works on my machine" bug this file exists
+# to rule out.
+* text=auto eol=lf
+
+# Binary-ish or generated files: never touch their bytes.
+*.png binary
+*.jpg binary
+*.ico binary
