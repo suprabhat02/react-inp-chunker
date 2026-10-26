@@ -19,7 +19,11 @@ const forbid = (/** @type {string[]} */ groups, /** @type {string} */ message) =
 
 export default defineConfig(
   {
-    ignores: ['dist/', 'coverage/', 'node_modules/'],
+    // demo/ is a standalone app with its own package.json, tsconfig, and
+    // linter (oxlint, from its Vite scaffold) — not part of the library's
+    // own quality pipeline. `npm run lint`/`format` inside demo/ itself
+    // covers it.
+    ignores: ['dist/', 'coverage/', 'node_modules/', 'demo/'],
   },
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,

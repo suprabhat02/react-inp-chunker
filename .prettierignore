@@ -2,3 +2,9 @@ dist
 coverage
 node_modules
 package-lock.json
+
+# demo/ is its own standalone app with its own tooling (Vite's scaffold
+# defaults, its own package.json and lint setup) — not part of the
+# library's own quality pipeline. Run `npm run format`/`lint` inside
+# demo/ itself if needed.
+demo

@@ -110,6 +110,11 @@ cancel race conditions, reentrancy, SSR safety) at 100% statement, branch,
 function, and line coverage. See [CONTRIBUTING.md](CONTRIBUTING.md) for how
 the project is organised and verified.
 
+**[Live demo](https://suprabhat02.github.io/react-inp-chunker/)** — a
+blocking vs. chunked comparison (same work, watch the difference) plus a
+`useDeferredTask` example, installing the real published package like any
+consumer would. Source in [`demo/`](demo/).
+
 ## License
 
 MIT © [Suprabhat Kumar](https://suprabhat-dev.com)
