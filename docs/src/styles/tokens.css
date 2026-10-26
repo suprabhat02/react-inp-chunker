@@ -1,0 +1,175 @@
+/*
+ * Design tokens: the only place a color is defined.
+ *
+ * The palette is Suprabhat's portfolio design system (suprabhat-dev.com):
+ * OKLCH seeds for an ink-blue neutral, an emerald brand color and a magenta
+ * second color. Each role keeps a fixed lightness per theme, so every text
+ * role stays at WCAG AA or better on every surface, in both themes.
+ *
+ * The site-specific roles borrow the vocabulary of a browser performance
+ * trace, and mean the same thing everywhere on the page:
+ *   --frame        a painted frame: the page is responsive (emerald)
+ *   --interaction  a click or key press (magenta)
+ *   --long-task    time the main thread is blocked (red)
+ *   --wait         time an interaction spends waiting (amber)
+ */
+
+:root {
+  --seed-primary-h: 158;
+  --seed-secondary-h: 335;
+  --seed-neutral-h: 250;
+  --seed-chroma: 0.2;
+
+  /* Dark (default) */
+  --bg: oklch(0.15 0.035 var(--seed-neutral-h));
+  --bg-raised: oklch(0.18 0.04 var(--seed-neutral-h));
+  --bg-sunken: oklch(0.12 0.03 var(--seed-neutral-h));
+  --surface: oklch(0.2 0.04 var(--seed-neutral-h));
+  --surface-strong: oklch(0.24 0.045 var(--seed-neutral-h));
+  --text: oklch(0.97 0.012 var(--seed-neutral-h));
+  --text-2: oklch(0.82 0.035 var(--seed-neutral-h));
+  --text-3: oklch(0.71 0.04 var(--seed-neutral-h));
+  --accent: oklch(0.72 var(--seed-chroma) var(--seed-primary-h));
+  --accent-strong: oklch(0.81 calc(var(--seed-chroma) * 0.7) var(--seed-primary-h));
+  --accent-2: oklch(0.82 calc(var(--seed-chroma) * 0.65) var(--seed-secondary-h));
+  --on-accent: oklch(0.14 0.03 var(--seed-neutral-h));
+  --success: oklch(0.78 0.16 155);
+  --warning: oklch(0.82 0.15 75);
+  --danger: oklch(0.7 0.18 25);
+
+  --border: color-mix(in oklch, var(--text) 11%, transparent);
+  --border-strong: color-mix(in oklch, var(--text) 22%, transparent);
+  --accent-soft: color-mix(in oklch, var(--accent) 14%, transparent);
+  --header-fill: color-mix(in oklch, var(--bg) 94%, transparent);
+
+  --frame: var(--accent);
+  --interaction: var(--accent-2);
+  --long-task: var(--danger);
+  --wait: var(--warning);
+  --task: color-mix(in oklch, var(--text) 40%, var(--bg-sunken));
+  --rating-good: var(--success);
+  --rating-ni: var(--warning);
+  --rating-poor: var(--danger);
+
+  /* Syntax highlighting, from the same roles. */
+  --code-bg: var(--bg-sunken);
+  --tok-keyword: var(--accent-2);
+  --tok-string: var(--accent-strong);
+  --tok-entity: var(--accent);
+  --tok-class: var(--warning);
+  --tok-property: var(--text-2);
+  --tok-comment: var(--text-3);
+  --tok-sign: var(--text-3);
+  --tok-identifier: var(--text);
+
+  color-scheme: dark;
+}
+
+[data-theme='light'] {
+  --bg: oklch(0.985 0.006 var(--seed-neutral-h));
+  --bg-raised: oklch(1 0 var(--seed-neutral-h));
+  --bg-sunken: oklch(0.955 0.016 var(--seed-neutral-h));
+  --surface: oklch(1 0 var(--seed-neutral-h));
+  --surface-strong: oklch(0.94 0.02 var(--seed-neutral-h));
+  --text: oklch(0.2 0.04 var(--seed-neutral-h));
+  --text-2: oklch(0.38 0.045 var(--seed-neutral-h));
+  --text-3: oklch(0.48 0.045 var(--seed-neutral-h));
+  /* Lighter grounds leave less sRGB room for chroma, so light accents scale
+     the seed down to stay in gamut (a clipped color shifts hue and contrast). */
+  --accent: oklch(0.48 calc(var(--seed-chroma) * 0.55) var(--seed-primary-h));
+  --accent-strong: oklch(0.43 calc(var(--seed-chroma) * 0.5) var(--seed-primary-h));
+  --accent-2: oklch(0.5 calc(var(--seed-chroma) * 0.85) var(--seed-secondary-h));
+  --on-accent: oklch(1 0 var(--seed-neutral-h));
+  --success: oklch(0.47 0.11 155);
+  --warning: oklch(0.5 0.1 75);
+  --danger: oklch(0.5 0.19 25);
+
+  --border: color-mix(in oklch, var(--text) 13%, transparent);
+  --border-strong: color-mix(in oklch, var(--text) 26%, transparent);
+  --header-fill: color-mix(in oklch, var(--bg-raised) 94%, transparent);
+
+  color-scheme: light;
+}
+
+/* Browsers without OKLCH get the same palette as static values. */
+@supports not (color: oklch(0 0 0)) {
+  :root {
+    --bg: #020c19;
+    --bg-raised: #031222;
+    --bg-sunken: #010610;
+    --surface: #071727;
+    --surface-strong: #0e2236;
+    --text: #eff6fd;
+    --text-2: #b4c6db;
+    --text-3: #8fa4ba;
+    --accent: #00c872;
+    --accent-strong: #66dc9e;
+    --accent-2: #f8a3e5;
+    --on-accent: #020a15;
+    --success: #4ed589;
+    --warning: #fcb442;
+    --danger: #fa6863;
+    --border: rgb(239 246 253 / 0.11);
+    --border-strong: rgb(239 246 253 / 0.22);
+    --accent-soft: rgb(0 200 114 / 0.14);
+    --header-fill: rgb(2 12 25 / 0.86);
+  }
+
+  [data-theme='light'] {
+    --bg: #f7fafe;
+    --bg-raised: #ffffff;
+    --bg-sunken: #e9f0f8;
+    --surface: #ffffff;
+    --surface-strong: #e0ebf7;
+    --text: #071727;
+    --text-2: #30445a;
+    --text-3: #4a6076;
+    --accent: #077045;
+    --accent-strong: #01603a;
+    --accent-2: #9a3289;
+    --on-accent: #ffffff;
+    --success: #106c3e;
+    --warning: #845a0f;
+    --danger: #b71824;
+    --border: rgb(7 23 39 / 0.13);
+    --border-strong: rgb(7 23 39 / 0.26);
+    --accent-soft: rgb(7 112 69 / 0.14);
+    --header-fill: rgb(255 255 255 / 0.88);
+  }
+}
+
+:root {
+  --font-sans:
+    'Atkinson Hyperlegible Next Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono:
+    'Geist Mono Variable', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+  /* Type scale: 17px body; steps of roughly a perfect fourth above it. */
+  --step--1: 0.875rem;
+  --step-0: 1.0625rem;
+  --step-1: 1.25rem;
+  --step-2: 1.625rem;
+  --step-3: clamp(1.75rem, 1.2rem + 1.8vw, 2.25rem);
+  --step-4: clamp(2.25rem, 1.3rem + 3.6vw, 4rem);
+
+  --radius-control: 6px;
+  --radius-panel: 10px;
+  --measure: 68ch;
+  --container: 1120px;
+  --gutter: clamp(16px, 4vw, 40px);
+  --header-height: 60px;
+  /* How far below the sticky header an anchored section should land. */
+  --header-offset: 80px;
+
+  --z-header: 60;
+  --z-skip: 100;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (max-width: 1020px) {
+  :root {
+    /* The header gains a second row for the section links. */
+    --header-offset: 124px;
+  }
+}

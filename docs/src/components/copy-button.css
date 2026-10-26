@@ -1,0 +1,31 @@
+.copy-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--bg-raised);
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--step--1);
+  font-weight: 650;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.copy-button:hover {
+  color: var(--text);
+  border-color: var(--text-3);
+}
+
+.copy-button[data-status='copied'] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.copy-button[data-status='error'] {
+  color: var(--danger);
+  border-color: var(--danger);
+}

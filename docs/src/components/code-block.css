@@ -1,0 +1,81 @@
+.code-block {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--code-bg);
+  overflow: hidden;
+}
+
+.code-block__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 6px 8px 6px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.code-block__title {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.code-block__pre {
+  margin: 0;
+  padding: 16px 18px 18px;
+  overflow-x: auto;
+  color: var(--tok-identifier);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  line-height: 1.7;
+  tab-size: 2;
+}
+
+.code-block__pre:focus-visible {
+  outline-offset: -2px;
+}
+
+.code-block__line {
+  display: block;
+  min-height: 1lh;
+  white-space: pre;
+}
+
+.tok-keyword {
+  color: var(--tok-keyword);
+}
+
+.tok-string {
+  color: var(--tok-string);
+}
+
+.tok-entity,
+.tok-jsxliterals {
+  color: var(--tok-entity);
+}
+
+.tok-class {
+  color: var(--tok-class);
+}
+
+.tok-property {
+  color: var(--tok-property);
+}
+
+.tok-comment {
+  color: var(--tok-comment);
+  font-style: italic;
+}
+
+.tok-sign {
+  color: var(--tok-sign);
+}
+
+.tok-identifier {
+  color: var(--tok-identifier);
+}

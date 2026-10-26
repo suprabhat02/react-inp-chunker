@@ -1,0 +1,388 @@
+/*
+ * The trace: one lane per run, on a shared time axis, in the vocabulary of
+ * a browser performance panel. Neutral bars are JavaScript running; the
+ * hatched red part of a bar is a long task (past 50 ms, input waits);
+ * emerald ticks are painted frames; magenta is an interaction; the amber
+ * bar is how long that interaction waited to show on screen.
+ */
+
+.trace {
+  margin: 0;
+  padding: clamp(16px, 3vw, 24px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--bg-raised);
+}
+
+.trace__head,
+.trace__row,
+.trace__control {
+  display: grid;
+  grid-template-columns: 11.5rem minmax(0, 1fr) 8.5rem;
+  column-gap: 18px;
+  align-items: center;
+}
+
+.trace__row {
+  padding-block: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.trace__control {
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.trace__ruler {
+  position: relative;
+  height: 22px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.trace__tick {
+  position: absolute;
+  bottom: 4px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.trace__tick:first-child {
+  transform: none;
+}
+
+.trace__tick:last-child {
+  transform: translateX(-100%);
+}
+
+.trace__column-title {
+  color: var(--text-3);
+  font-size: 0.8125rem;
+  line-height: 1.3;
+}
+
+.trace__label {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.trace__name {
+  color: var(--text);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.trace__detail {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+.trace__lane {
+  position: relative;
+  height: 44px;
+  border-radius: 4px;
+  background: var(--bg-sunken);
+}
+
+.trace__task,
+.trace__frame,
+.trace__wait,
+.trace__click {
+  position: absolute;
+}
+
+.trace__task {
+  top: 12px;
+  bottom: 12px;
+  min-width: 1px;
+  background: var(--task);
+}
+
+.trace__task--long {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--long-task) 0 3px,
+    color-mix(in oklch, var(--long-task) 38%, transparent) 3px 6px
+  );
+}
+
+/* Hero: each slice gets a hairline gap, so the pauses between them stay
+   visible at any width (true to scale they would be under a pixel). */
+.trace__task--slice {
+  box-shadow: inset -1px 0 0 var(--bg-sunken);
+}
+
+/* Results: the whole span of work, with frames and blocked stretches drawn over it. */
+.trace__task--work {
+  background: color-mix(in oklch, var(--task) 55%, transparent);
+}
+
+.trace__frames {
+  position: absolute;
+  top: 3px;
+  left: 0;
+  width: 100%;
+  height: 6px;
+  overflow: visible;
+}
+
+.trace__frames path {
+  stroke: var(--frame);
+  stroke-width: 1.5px;
+}
+
+.trace__click--small::before {
+  top: -2px;
+  width: 8px;
+  height: 8px;
+  border-width: 1.5px;
+}
+
+.trace__freeze {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--step-1);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.trace__frame {
+  top: 3px;
+  width: 2px;
+  height: 6px;
+  border-radius: 1px;
+  background: var(--frame);
+  transform: translateX(-1px);
+}
+
+.trace__wait {
+  bottom: 3px;
+  height: 5px;
+  min-width: 3px;
+  border-radius: 3px;
+  background: var(--wait);
+}
+
+.trace__click {
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--interaction);
+  transform: translateX(-1px);
+}
+
+.trace__click::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--bg-raised);
+  border-radius: 50%;
+  background: var(--interaction);
+  transform: translateX(-50%);
+}
+
+.trace__readout {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+
+.trace__readout-value {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--step-1);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.trace__control-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-2);
+  font-size: var(--step--1);
+}
+
+.trace__control-label strong {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.trace__caption {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: var(--step--1);
+  line-height: 1.55;
+}
+
+.trace__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+  color: var(--text-2);
+}
+
+.trace__legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.trace__key {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 18px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.trace__key--task {
+  background: var(--task);
+}
+
+.trace__key--long {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--long-task) 0 3px,
+    color-mix(in oklch, var(--long-task) 38%, transparent) 3px 6px
+  );
+}
+
+.trace__key--frame {
+  width: 3px;
+  height: 10px;
+  background: var(--frame);
+}
+
+.trace__key--click {
+  width: 10px;
+  border-radius: 50%;
+  background: var(--interaction);
+  box-shadow: 12px 0 0 -2px var(--wait);
+  margin-right: 8px;
+}
+
+.trace__note {
+  max-width: var(--measure);
+  color: var(--text-3);
+}
+
+.trace__legend--results {
+  margin: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: var(--step--1);
+}
+
+/* INP rating badge, shared by the hero and the playground. */
+.rating {
+  display: inline-block;
+  padding: 1px 8px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.rating[data-rating='good'] {
+  color: var(--rating-good);
+}
+
+.rating[data-rating='needs-improvement'] {
+  color: var(--rating-ni);
+}
+
+.rating[data-rating='poor'] {
+  color: var(--rating-poor);
+}
+
+/*
+ * The one orchestrated moment on the page: on load, time sweeps across
+ * both hero lanes once, at a steady rate (it is a clock, so linear), and
+ * then the click lands. Reduced motion skips straight to the end.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .trace--hero .trace__lane::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-left: 2px solid var(--text-3);
+    background: var(--bg-sunken);
+    transform-origin: right center;
+    animation: trace-sweep 1.4s linear 0.25s both;
+  }
+
+  .trace--hero .trace__click,
+  .trace--hero .trace__wait,
+  .trace--hero .trace__readout {
+    animation: trace-land 320ms var(--ease-out) 1.7s both;
+  }
+}
+
+@keyframes trace-sweep {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+    border-left-color: transparent;
+  }
+}
+
+@keyframes trace-land {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 760px) {
+  .trace__head,
+  .trace__row,
+  .trace__control {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 8px;
+  }
+
+  .trace__head > :first-child,
+  .trace__control > :first-child,
+  .trace__column-title {
+    display: none;
+  }
+
+  .trace__readout {
+    grid-auto-flow: column;
+    justify-content: start;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .trace__readout::before {
+    content: 'Click to next paint:';
+    color: var(--text-3);
+    font-size: var(--step--1);
+  }
+
+  .trace__freeze::before {
+    content: 'Longest input delay: ';
+    color: var(--text-3);
+    font-family: var(--font-sans);
+    font-size: var(--step--1);
+    font-weight: 400;
+  }
+}

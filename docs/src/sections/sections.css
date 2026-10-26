@@ -1,0 +1,354 @@
+.subhead {
+  margin: 1.8em 0 0.6em;
+  font-size: var(--step-1);
+}
+
+.prose > .subhead:first-child {
+  margin-top: 0;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 20rem);
+  gap: clamp(28px, 5vw, 64px);
+  align-items: start;
+}
+
+.split--even {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: clamp(40px, 6vw, 64px);
+}
+
+.callout {
+  padding: 20px 22px;
+  border-left: 3px solid var(--long-task);
+  border-radius: 0 var(--radius-panel) var(--radius-panel) 0;
+  background: var(--bg-raised);
+}
+
+.callout__title {
+  margin-bottom: 12px;
+  font-size: var(--step-0);
+}
+
+.callout__list {
+  color: var(--text-2);
+  font-size: var(--step--1);
+}
+
+.objective {
+  max-width: var(--measure);
+  margin-top: clamp(40px, 6vw, 64px);
+  padding: clamp(20px, 3vw, 28px);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-panel);
+  background: var(--accent-soft);
+}
+
+.objective__title {
+  margin-bottom: 10px;
+  color: var(--accent);
+  font-size: var(--step-1);
+}
+
+.objective p {
+  color: var(--text);
+  font-size: var(--step-1);
+  line-height: 1.5;
+}
+
+/* How it works: a loop of four steps, numbered because order matters. */
+.loop {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: loop;
+  border-block: 1px solid var(--border);
+}
+
+.loop__step {
+  position: relative;
+  margin: 0;
+  padding: 22px 22px 24px 0;
+  counter-increment: loop;
+}
+
+.loop__step + .loop__step {
+  padding-left: 22px;
+  border-left: 1px solid var(--border);
+}
+
+.loop__title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: var(--step-1);
+}
+
+.loop__title::before {
+  content: counter(loop);
+  color: var(--accent);
+  font-size: 0.85em;
+}
+
+.loop__step p {
+  color: var(--text-2);
+  font-size: var(--step--1);
+  line-height: 1.55;
+}
+
+.fallbacks li,
+.checks li {
+  color: var(--text-2);
+}
+
+.checks {
+  padding-left: 0;
+  list-style: none;
+}
+
+.checks li {
+  position: relative;
+  padding-left: 22px;
+}
+
+.checks li::before {
+  content: '';
+  position: absolute;
+  top: 0.55em;
+  left: 2px;
+  width: 9px;
+  height: 5px;
+  border-left: 2px solid var(--accent);
+  border-bottom: 2px solid var(--accent);
+  transform: rotate(-45deg);
+}
+
+.tradeoff {
+  max-width: var(--measure);
+  margin-top: clamp(32px, 5vw, 48px);
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  color: var(--text-2);
+}
+
+/* Get started */
+
+.guide {
+  display: grid;
+  gap: clamp(40px, 6vw, 64px);
+}
+
+.guide__block {
+  display: grid;
+  grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+  gap: clamp(20px, 4vw, 48px);
+  align-items: start;
+}
+
+.guide__block > .prose h3 {
+  margin-bottom: 10px;
+  font-size: var(--step-1);
+}
+
+.guide__block > .prose p + ul {
+  margin-top: 12px;
+}
+
+.guide__block > .prose li {
+  color: var(--text-2);
+  font-size: var(--step--1);
+}
+
+.guide__block--wide {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.tips {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+
+.tips li {
+  margin: 0;
+  padding: 18px 20px 18px 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: var(--step--1);
+}
+
+.tips li:nth-child(even) {
+  padding-left: 20px;
+  border-left: 1px solid var(--border);
+}
+
+.tips strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: var(--step-0);
+}
+
+/* API */
+
+.api {
+  display: grid;
+  gap: clamp(40px, 6vw, 56px);
+}
+
+.api__entry {
+  display: grid;
+  gap: 16px;
+}
+
+.api__signature {
+  font-size: var(--step-1);
+  overflow-wrap: anywhere;
+}
+
+.api__signature code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+  white-space: normal;
+}
+
+.api__entry > p {
+  max-width: var(--measure);
+}
+
+.api__table-title {
+  margin-top: 6px;
+  color: var(--text-3);
+  font-family: var(--font-sans);
+  font-size: var(--step--1);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.api-table td code {
+  padding: 0;
+  background: none;
+}
+
+.api-table td:first-child {
+  width: 24%;
+}
+
+.api-table td:first-child code {
+  color: var(--accent);
+  white-space: normal;
+}
+
+.api-table td:nth-child(2) code {
+  color: var(--text-2);
+  white-space: normal;
+}
+
+.lifecycle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 0;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--bg-raised);
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+
+.lifecycle code {
+  color: var(--text);
+}
+
+/* When to use it */
+
+.choices th[scope='row'] {
+  width: 46%;
+  background: transparent;
+  color: var(--text-2);
+  font-weight: 400;
+}
+
+.choices td {
+  color: var(--text);
+}
+
+.choices tr.is-this td {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.faq {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 clamp(24px, 4vw, 48px);
+  margin: 0;
+}
+
+.faq__item {
+  padding-block: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.faq dt {
+  margin-bottom: 6px;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.faq dd {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--step--1);
+}
+
+@media (max-width: 980px) {
+  .split,
+  .split--even,
+  .guide__block {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .loop {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .loop__step:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .loop__step:nth-child(n + 3) {
+    border-top: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 640px) {
+  .loop,
+  .tips,
+  .faq {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .loop__step + .loop__step {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .tips li:nth-child(even) {
+    padding-left: 0;
+    border-left: 0;
+  }
+}

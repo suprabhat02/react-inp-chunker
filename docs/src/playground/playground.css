@@ -1,0 +1,350 @@
+.playground {
+  display: grid;
+  gap: clamp(28px, 4vw, 40px);
+}
+
+/* The three steps are a real sequence, so they are numbered. */
+.playground__steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--bg-raised);
+}
+
+.playground__step {
+  min-width: 0;
+  margin: 0;
+  padding: clamp(18px, 2.5vw, 26px);
+  counter-increment: step;
+}
+
+.playground__step + .playground__step {
+  border-left: 1px solid var(--border);
+}
+
+.playground__step-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 18px;
+  font-size: var(--step-1);
+}
+
+.playground__step-title::before {
+  content: counter(step);
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 1.6em;
+  height: 1.6em;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  color: var(--accent);
+  font-size: 0.8em;
+  font-weight: 700;
+  transform: translateY(-0.05em);
+}
+
+.playground__controls {
+  display: grid;
+  gap: 20px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.control {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.control--group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.control--group legend {
+  margin-bottom: 8px;
+  padding: 0;
+}
+
+.control .field-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.control output {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.control__hint {
+  color: var(--text-3);
+  font-size: var(--step--1);
+  line-height: 1.45;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+
+.segmented__option {
+  position: relative;
+  cursor: pointer;
+}
+
+.segmented__option + .segmented__option {
+  border-left: 1px solid var(--border-strong);
+}
+
+.segmented__option input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.segmented__text {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 8px 6px;
+  color: var(--text-2);
+  font-weight: 650;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.segmented__detail {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.segmented__option input:checked + .segmented__text {
+  background: var(--accent-soft);
+  color: var(--text);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.segmented__option input:checked + .segmented__text .segmented__detail {
+  color: var(--text-2);
+}
+
+.segmented__option input:focus-visible + .segmented__text {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+}
+
+.playground__controls:disabled .segmented__option,
+.playground__controls:disabled .segmented__option input {
+  cursor: not-allowed;
+}
+
+.playground__controls:disabled {
+  opacity: 0.6;
+}
+
+.playground__estimate {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: var(--step--1);
+}
+
+.playground__actions {
+  display: grid;
+  gap: 10px;
+}
+
+.playground__progress {
+  margin-top: 18px;
+  color: var(--text-2);
+  font-size: var(--step--1);
+}
+
+.playground__progress progress {
+  width: 100%;
+  height: 10px;
+  margin-bottom: 6px;
+  accent-color: var(--accent);
+}
+
+.probe {
+  display: grid;
+  gap: 14px;
+}
+
+.probe__field {
+  display: grid;
+  gap: 8px;
+}
+
+.probe__counter {
+  justify-content: flex-start;
+}
+
+.probe__count {
+  min-width: 2ch;
+  color: var(--accent-2);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.probe__dial-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-3);
+  font-size: var(--step--1);
+}
+
+.probe__dial {
+  position: relative;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--border-strong);
+  border-radius: 50%;
+}
+
+.probe__dial::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  width: 2px;
+  height: 10px;
+  border-radius: 1px;
+  background: var(--frame);
+  transform: translateX(-50%);
+}
+
+.probe__dial--counter {
+  width: auto;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  color: var(--frame);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.probe__dial--counter::after {
+  content: none;
+}
+
+.playground__results {
+  display: grid;
+  gap: 20px;
+}
+
+.playground__results-title {
+  font-size: var(--step-2);
+}
+
+.playground__verdict {
+  max-width: var(--measure);
+  color: var(--text-2);
+  font-size: var(--step-1);
+  line-height: 1.5;
+}
+
+.playground__verdict p + p {
+  margin-top: 0.6em;
+  font-size: var(--step-0);
+}
+
+.playground__table th[scope='row'] {
+  width: 34%;
+  background: transparent;
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.playground__table td {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.playground__table td .muted {
+  font-family: var(--font-sans);
+}
+
+.playground__inp {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.playground__inp .rating {
+  font-family: var(--font-sans);
+}
+
+.playground__code {
+  display: grid;
+  gap: 16px;
+}
+
+.playground__code-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 1080px) {
+  .playground__steps {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .playground__step:first-child {
+    grid-row: span 2;
+  }
+
+  .playground__step:nth-child(3) {
+    border-top: 1px solid var(--border);
+  }
+
+  .playground__code-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .playground__steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .playground__step:first-child {
+    grid-row: auto;
+  }
+
+  .playground__step + .playground__step {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .playground__table th[scope='row'] {
+    width: auto;
+  }
+}

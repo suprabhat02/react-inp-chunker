@@ -1,0 +1,58 @@
+name: Deploy docs
+
+# Pushes to main that touch docs/ redeploy the documentation site and
+# playground to GitHub Pages at https://suprabhat02.github.io/react-inp-chunker/
+# (no custom domain).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/deploy-docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+      - run: npm ci
+      # Lint, then type-check and build. The type check also compiles every
+      # code sample in docs/src/examples against the published package's
+      # types, so the docs can't show code that doesn't compile.
+      - run: npm run lint
+      # The site installs react-inp-chunker from the registry like any real
+      # consumer (see docs/package.json), not the local build, so it always
+      # reflects what's actually published.
+      - run: npm run build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

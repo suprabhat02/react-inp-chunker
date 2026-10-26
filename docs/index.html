@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>react-inp-chunker: run heavy JavaScript without freezing your React app</title>
+    <meta
+      name="description"
+      content="A tiny React and TypeScript library that splits long-running work into small slices and yields to the main thread, so clicks and typing stay responsive and INP stays good. Live playground included."
+    />
+    <link rel="canonical" href="https://suprabhat02.github.io/react-inp-chunker/" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#020c19" />
+    <meta name="author" content="Suprabhat Kumar" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="react-inp-chunker" />
+    <meta
+      property="og:title"
+      content="react-inp-chunker: heavy JavaScript, without the frozen UI"
+    />
+    <meta
+      property="og:description"
+      content="Split long-running work into slices that yield to the main thread. Keep React apps responsive and INP in the green. Try the live playground."
+    />
+    <meta property="og:url" content="https://suprabhat02.github.io/react-inp-chunker/" />
+    <meta
+      property="og:image"
+      content="https://suprabhat02.github.io/react-inp-chunker/og.png"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="react-inp-chunker: a long task, and the same work cut into slices"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:creator" content="@SuprabhatKarn97" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareSourceCode",
+        "name": "react-inp-chunker",
+        "description": "React and TypeScript hooks that split heavy synchronous work into time-sliced chunks and yield to the main thread, protecting Interaction to Next Paint (INP).",
+        "url": "https://suprabhat02.github.io/react-inp-chunker/",
+        "codeRepository": "https://github.com/suprabhat02/react-inp-chunker",
+        "programmingLanguage": "TypeScript",
+        "runtimePlatform": "React",
+        "license": "https://opensource.org/licenses/MIT",
+        "author": {
+          "@type": "Person",
+          "name": "Suprabhat Kumar",
+          "url": "https://suprabhat-dev.com/",
+          "jobTitle": "Senior Frontend Engineer",
+          "sameAs": [
+            "https://github.com/suprabhat02",
+            "https://x.com/SuprabhatKarn97",
+            "https://www.npmjs.com/~suprabhat02"
+          ]
+        }
+      }
+    </script>
+
+    <!-- Applies the saved or system theme before first paint, so there is no flash. -->
+    <script>
+      (function () {
+        var theme = null;
+        try {
+          theme = localStorage.getItem('react-inp-chunker:theme');
+        } catch (error) {}
+        if (theme !== 'light' && theme !== 'dark') {
+          theme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        document.documentElement.dataset.theme = theme;
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', theme === 'light' ? '#f7fafe' : '#020c19');
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>
+      <p style="padding: 24px; font-family: system-ui, sans-serif">
+        This page's playground needs JavaScript. The README on GitHub covers the same
+        material: https://github.com/suprabhat02/react-inp-chunker
+      </p>
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

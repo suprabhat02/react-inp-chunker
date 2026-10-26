@@ -1,0 +1,31 @@
+{
+  "name": "react-inp-chunker-docs",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@fontsource-variable/atkinson-hyperlegible-next": "5.3.0",
+    "@fontsource-variable/geist-mono": "5.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-inp-chunker": "^0.1.2",
+    "react-smart-copy": "1.24.0",
+    "sugar-high": "2.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "oxlint": "^1.88.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.4"
+  },
+  "description": "Documentation site and playground for react-inp-chunker. Installs the published package from npm, the way any consumer would."
+}

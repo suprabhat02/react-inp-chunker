@@ -1,0 +1,80 @@
+.hero {
+  padding-block: clamp(44px, 7vw, 88px) clamp(56px, 8vw, 96px);
+}
+
+.hero__intro {
+  max-width: 54rem;
+  margin-bottom: clamp(36px, 5vw, 56px);
+}
+
+.hero__title {
+  font-size: var(--step-4);
+  font-weight: 680;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.hero__lede {
+  max-width: 42rem;
+  margin-top: 24px;
+  color: var(--text-2);
+  font-size: clamp(1.125rem, 1rem + 0.4vw, 1.3125rem);
+  line-height: 1.55;
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.install {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 5px 6px 5px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--bg-sunken);
+}
+
+.install__command {
+  padding: 0;
+  background: none;
+  color: var(--text);
+  font-size: 0.9375rem;
+  white-space: nowrap;
+}
+
+.install__prompt {
+  color: var(--text-3);
+}
+
+.hero__facts {
+  margin-top: 22px;
+  color: var(--text-3);
+  font-size: var(--step--1);
+}
+
+@media (max-width: 560px) {
+  .install {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .install__command {
+    font-size: 0.8125rem;
+  }
+
+  .install__prompt {
+    display: none;
+  }
+
+  .hero__actions .button {
+    flex: 1 1 auto;
+  }
+}
