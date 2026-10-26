@@ -1,7 +1,4 @@
 dist
-.astro
+coverage
 node_modules
 package-lock.json
-playwright-report
-test-results
-tests/e2e/exported

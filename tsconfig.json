@@ -1,21 +1,34 @@
 {
-  "extends": "astro/tsconfigs/strictest",
-  "include": [".astro/types.d.ts", "**/*"],
-  "exclude": [
-    "dist",
-    "node_modules",
-    "playwright-report",
-    "test-results",
-    "tests/e2e/exported"
-  ],
   "compilerOptions": {
-    "types": ["astro/client"],
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "jsx": "react-jsx",
     "jsxImportSource": "react",
-    "verbatimModuleSyntax": true,
+
+    "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "noImplicitOverride": true,
-    "noFallthroughCasesInSwitch": true
-  }
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+
+    "declaration": true,
+    "declarationMap": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+
+    "noEmit": true
+  },
+  "include": ["src/**/*", "tests/**/*", "vitest.config.ts", "tsdown.config.ts"],
+  "exclude": ["dist", "node_modules", "coverage"]
 }

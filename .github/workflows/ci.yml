@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   quality:
-    name: Lint, types, unit tests, build
+    name: Lint, types, tests + coverage, build, size
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -29,48 +29,14 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run format:check
-      - name: Visual rules (no gradients)
-        run: node scripts/check-visual-rules.mjs
-      - run: npm test
+      - run: npm run typecheck
+      - name: Tests + 100% coverage
+        run: npm run test:coverage
       - run: npm run build
-      - name: Every page exists in every locale
-        run: node scripts/check-locale-routes.mjs
-      - name: JavaScript size budget (per locale)
-        run: node scripts/size-budget.mjs
+      - name: Bundle size budgets
+        run: npm run size
       - uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist
-          retention-days: 7
-
-  e2e:
-    name: E2E + axe (${{ matrix.browser }})
-    needs: quality
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        browser: [chromium, firefox, webkit]
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist
-      - run: npx playwright install --with-deps ${{ matrix.browser }}
-      - name: Collect the Playwright tests the site publishes
-        run: node scripts/collect-exported-tests.mjs
-      - run: npx playwright test --project=${{ matrix.browser }} ${{ matrix.browser == 'chromium' && '--project=mobile-chromium' || '' }}
-        env:
-          CI: true
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: playwright-report-${{ matrix.browser }}
-          path: playwright-report
           retention-days: 7

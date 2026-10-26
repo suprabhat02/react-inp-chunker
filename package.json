@@ -1,55 +1,115 @@
 {
-  "name": "dashboard-ux-lab",
-  "version": "0.1.0",
-  "private": true,
-  "description": "An interactive lab for how dashboards should behave when data isn't perfect \u2014 loading, slow, empty, error and restricted states \u2014 built twice, in React and framework-free TypeScript.",
-  "type": "module",
+  "name": "react-inp-chunker",
+  "version": "0.0.0",
+  "description": "Headless React/TypeScript primitives that chunk heavy synchronous work and yield to the main thread, so long-running updates never cost you Interaction to Next Paint (INP).",
+  "keywords": [
+    "react",
+    "typescript",
+    "inp",
+    "interaction-to-next-paint",
+    "core-web-vitals",
+    "performance",
+    "scheduler",
+    "scheduler.yield",
+    "main-thread",
+    "concurrent",
+    "headless"
+  ],
+  "homepage": "https://lab.suprabhat-dev.com",
+  "bugs": "https://github.com/suprabhat02/react-inp-chunker/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/suprabhat02/react-inp-chunker.git"
+  },
   "license": "MIT",
   "author": "Suprabhat Kumar (https://suprabhat-dev.com)",
+  "type": "module",
+  "sideEffects": false,
   "engines": {
     "node": ">=22.12"
   },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js",
+      "require": "./dist/core/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  },
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro check && astro build",
-    "preview": "astro preview",
-    "check": "astro check",
-    "typecheck": "astro check",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "node scripts/collect-exported-tests.mjs && playwright test",
-    "verify": "npm run lint && npm run format:check && npm run test && npm run build && npm run test:e2e",
-    "og": "node scripts/generate-og.mjs"
-  },
-  "dependencies": {
-    "@astrojs/react": "7.0.1",
-    "@astrojs/sitemap": "3.7.4",
-    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
-    "@fontsource-variable/geist-mono": "5.3.0",
-    "@fontsource-variable/noto-kufi-arabic": "5.3.0",
-    "astro": "7.3.8",
-    "lucide": "1.57.0",
-    "react": "19.3.1",
-    "react-dom": "19.3.1"
+    "test:coverage": "vitest run --coverage",
+    "size": "size-limit",
+    "verify": "npm run lint && npm run format:check && npm run typecheck && npm run test:coverage && npm run build && npm run size",
+    "prepublishOnly": "npm run verify"
   },
   "devDependencies": {
-    "@astrojs/check": "0.9.10",
-    "@axe-core/playwright": "4.14.0",
     "@eslint/js": "10.0.1",
-    "@playwright/test": "1.64.1",
+    "@testing-library/react": "16.3.3",
+    "@types/node": "24.1.0",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "eslint": "10.12.0",
-    "eslint-plugin-astro": "3.2.1",
+    "@vitest/coverage-v8": "5.0.5",
+    "eslint": "10.13.0",
     "eslint-plugin-react-hooks": "7.1.1",
     "globals": "17.13.0",
+    "jsdom": "26.1.0",
     "prettier": "3.9.10",
-    "prettier-plugin-astro": "1.1.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "size-limit": "14.3.0",
+    "@size-limit/preset-small-lib": "14.3.0",
+    "tsdown": "0.23.2",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.71.2",
+    "typescript-eslint": "8.72.0",
     "vitest": "5.0.5"
-  }
+  },
+  "size-limit": [
+    {
+      "name": "core (import { createChunkScheduler })",
+      "path": "dist/core/index.js",
+      "import": "{ createChunkScheduler }",
+      "limit": "1.3 kB"
+    },
+    {
+      "name": "useChunkedTask",
+      "path": "dist/index.js",
+      "import": "{ useChunkedTask }",
+      "limit": "2.2 kB"
+    },
+    {
+      "name": "useDeferredTask",
+      "path": "dist/index.js",
+      "import": "{ useDeferredTask }",
+      "limit": "1.6 kB"
+    },
+    {
+      "name": "everything",
+      "path": "dist/index.js",
+      "limit": "3.5 kB"
+    }
+  ]
 }

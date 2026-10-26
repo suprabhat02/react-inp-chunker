@@ -1,66 +1,58 @@
 # Contributing
 
-Thanks for helping. Two rules matter more than any others.
+Thanks for helping. A few rules keep this package small, type-safe, and
+reliable.
 
-## 1. Everything ships in English, Spanish and Arabic
+## 1. `core/` stays framework-free
 
-No feature, page or message is done until it exists in all three locales.
-The build enforces this (see [ADR 0004](docs/decisions/0004-internationalisation.md)).
+`src/core/` is the scheduling engine — it must never import `react` or
+`react-dom`. That's what lets it work outside React too (a Node script, a Web
+Worker), and it's enforced by ESLint (`src/core/**` rejects those imports),
+not just convention. `src/react/` is the only layer that may depend on React.
 
-**Adding text**
+## 2. Every change ships with tests, and coverage stays at 100%
 
-1. Add the string to `src/spec/i18n/en.ts`. Use a function for anything interpolated
-   (`(plan: string) => \`No accounts on the ${plan} plan\``) and `Intl.PluralRules`
-   for counts.
-2. Run `npm run check`. TypeScript now lists the missing keys in `es.ts` and `ar.ts`.
-3. Add the Spanish and Arabic text. Arabic has six plural categories
-   (`zero`, `one`, `two`, `few`, `many`, `other`); see `accountsCount` in `ar.ts`.
-4. Never hard-code visible text in components, pages or scripts. Read it from the
-   catalogue (`useI18n()` in React, `getMessages(locale)` elsewhere).
+`npm run test:coverage` enforces 100% statement, branch, function, and line
+coverage. A genuinely unreachable branch (defense-in-depth against a future
+refactor breaking an invariant that currently makes it impossible) is marked
+with a `/* v8 ignore next */` comment that explains _why_ it's unreachable —
+never added just to make a number go green. If you find yourself reaching for
+one, make sure the invariant it depends on is still true, and say so in the
+comment.
 
-**Adding a page**
+Edge cases and race conditions matter more than line count here: pause/
+resume/cancel interleavings, reentrant calls from a subscriber's own
+notification, AbortSignal timing, and SSR (`getServerSnapshot`) all have
+dedicated tests — look at `tests/core/chunk-scheduler.test.ts` and
+`tests/core/deferred-task.test.ts` for the pattern before adding a new one.
 
-Create it under `src/pages/[...locale]/` with `export const getStaticPaths = localePaths;`.
-It then exists at `/x/`, `/es/x/` and `/ar/x/`. Link with `href('/x/')` from `pageI18n()`.
+## 3. Type safety is not optional
 
-**Layout and styling**
+`tsconfig.json` runs in strict mode with `exactOptionalPropertyTypes`,
+`noUncheckedIndexedAccess`, and friends on. `npm run typecheck` must pass with
+zero errors, and `any` is not an escape hatch — if the types get in the way,
+that's usually a sign the design needs another look, not a cast.
 
-- Use logical CSS only: `margin-inline-start`, `padding-inline`, `inset-inline`,
-  `text-align: start`, `border-inline-start`. No `left`/`right` unless under `[dir='rtl']`.
-- Arabic must not get `letter-spacing` or `text-transform: uppercase`.
-- Code, IDs and numbers inside Arabic text read left-to-right: wrap in `<bdi>`,
-  `dir="ltr"`, or the formatter's isolation.
-- Direction-dependent geometry (like the chart) belongs in `src/spec/`, so every
-  implementation gets it right without branching.
+## Setup
 
-**Client bundles**
-
-Client code imports catalogues only through `spec/i18n/load/<locale>`.
-`spec/i18n/all` is for pages and tests (ESLint enforces this).
-
-## 2. Visual language
-
-See [ADR 0005](docs/decisions/0005-visual-language.md): no gradients, pill badges,
-eyebrow labels or boxed icons; icons only from `src/spec/icons.ts` (Lucide);
-illustrations only from Storyset via `docs/illustrations.md`; the header stays on
-one row at every width and in every language (tested).
-
-## 3. Both implementations follow one spec
-
-- `src/spec/` holds data and pure functions only, framework-free.
-- `impl-react/` and `impl-vanilla/` import only from `spec/`, never from each other.
-- Behaviour changes go in `spec/` (`dashboard-state.ts`, `dashboard-rules.ts`) so both builds
-  pick them up; the shared e2e suite must pass for both.
-- Commits are attributed to the people who wrote them. CI rejects AI co-author or
-  session trailers (`scripts/check-authorship.mjs`).
-- Behaviour changes start in `docs/spec.md` and the shared e2e suite.
-
-## Before you open a pull request
-
-```bash
-npm run verify   # lint, format, unit tests, build, e2e
-node scripts/check-locale-routes.mjs
-node scripts/size-budget.mjs
+```sh
+npm install
+npm run test:watch   # tests while you work
+npm run verify        # lint + format + typecheck + test:coverage + build + size — what CI runs
 ```
 
-Commits are authored by the project owner; please keep commit messages descriptive.
+## Commit authorship
+
+Every commit in this repository is authored by a person, under their own
+name — no AI tool attribution of any kind (author, committer, co-author
+trailer, or "generated with" footer). CI fails the build otherwise
+(`scripts/check-authorship.mjs`), checking the full commit history. Human
+contributors are, of course, entirely welcome.
+
+## Bundle size
+
+`npm run size` runs [size-limit](https://github.com/ai/size-limit) against
+the budgets in `package.json`'s `size-limit` field. A budget increase needs a
+real reason in the PR description — a correctness fix that costs a few bytes
+is fine; an increase to make room for something that could be written more
+tightly is not.
