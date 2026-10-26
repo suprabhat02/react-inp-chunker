@@ -1,6 +1,6 @@
 {
   "name": "react-inp-chunker",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Headless React/TypeScript primitives that chunk heavy synchronous work and yield to the main thread, so long-running updates never cost you Interaction to Next Paint (INP).",
   "keywords": [
     "react",
@@ -15,7 +15,7 @@
     "concurrent",
     "headless"
   ],
-  "homepage": "https://lab.suprabhat-dev.com",
+  "homepage": "https://github.com/suprabhat02/react-inp-chunker#readme",
   "bugs": "https://github.com/suprabhat02/react-inp-chunker/issues",
   "repository": {
     "type": "git",
