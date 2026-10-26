@@ -1,0 +1,31 @@
+name: Publish to npm
+
+# Fires when you publish a GitHub Release (tag it vX.Y.Z first, e.g. v0.1.0).
+# Re-runs the full verify suite before publishing, so a broken build can
+# never reach npm even if someone cuts a release by mistake.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write # required for npm provenance
+
+jobs:
+  publish:
+    name: Verify and publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - run: npm ci
+      - name: Full verify (lint, types, 100% coverage, build, size)
+        run: npm run verify
+      - name: Publish
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

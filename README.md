@@ -1,5 +1,8 @@
 # react-inp-chunker
 
+[![npm version](https://img.shields.io/npm/v/react-inp-chunker.svg)](https://www.npmjs.com/package/react-inp-chunker)
+[![CI](https://github.com/suprabhat02/react-inp-chunker/actions/workflows/ci.yml/badge.svg)](https://github.com/suprabhat02/react-inp-chunker/actions/workflows/ci.yml)
+
 **Headless React/TypeScript hooks that chunk heavy synchronous work and yield to
 the main thread, so a long update never costs you Interaction to Next Paint (INP).**
 

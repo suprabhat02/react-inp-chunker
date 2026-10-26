@@ -1,6 +1,6 @@
 {
   "name": "react-inp-chunker",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Headless React/TypeScript primitives that chunk heavy synchronous work and yield to the main thread, so long-running updates never cost you Interaction to Next Paint (INP).",
   "keywords": [
     "react",
