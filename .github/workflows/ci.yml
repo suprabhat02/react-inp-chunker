@@ -17,7 +17,7 @@ jobs:
     name: Lint, types, tests + coverage, build, size
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # full history, for the authorship check
       - name: Authorship (people only, every commit)
@@ -50,7 +50,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
