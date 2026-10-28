@@ -254,8 +254,25 @@ describe('development diagnostics', () => {
  * the production side of every `isDevelopment` guard in the hot loops.
  */
 describe('production module graph', () => {
-  /** A macrotask, long enough for a yielding loop to reach its pause gate. */
   const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+  /**
+   * Waits until the loop has actually parked on its pause gate, rather
+   * than until pause() has merely been called. Asserting the status only
+   * proves the flag was set; the loop may still be between yields, and
+   * resuming then means the paused branch never runs. Progress standing
+   * still across two macrotasks is the observable form of "parked".
+   */
+  async function waitUntilParked(readProgress: () => number): Promise<void> {
+    let previous = -1;
+    for (let attempt = 0; attempt < 50; attempt++) {
+      await tick();
+      const current = readProgress();
+      if (current === previous) return;
+      previous = current;
+    }
+    throw new Error('the task never parked');
+  }
 
   async function loadProduction() {
     vi.stubEnv('NODE_ENV', 'production');
@@ -274,16 +291,21 @@ describe('production module graph', () => {
 
   it('pauses, resumes and finishes a chunked task without a word', async () => {
     const { createChunkScheduler: create } = await loadProduction();
+    // Paused from inside the work, so the loop's next status check is
+    // guaranteed to see it and park.
+    let handle: ReturnType<typeof create<number, number>>;
     const scheduler = create({
       items: Array.from({ length: 200 }, (_, i) => i),
-      processItem: (item: number) => item,
+      processItem: (item: number) => {
+        if (item === 20) handle.pause();
+        return item;
+      },
       timeSliceMs: 0.0001, // yield at every opportunity
     });
+    handle = scheduler;
 
     scheduler.start();
-    scheduler.pause();
-    await tick();
-    // The loop is parked on its gate, which is the branch under test.
+    await waitUntilParked(() => scheduler.getSnapshot().processed);
     expect(scheduler.getSnapshot().status).toBe('paused');
     scheduler.resume();
     const outcome = await scheduler.settled;
@@ -295,15 +317,21 @@ describe('production module graph', () => {
 
   it('pauses, resumes and finishes a generator task without a word', async () => {
     const { createDeferredTask: create } = await loadProduction();
+    let segmentsRun = 0;
+    let handle: ReturnType<typeof create<number>>;
     function* work(): DeferredGenerator<number> {
-      for (let i = 0; i < 200; i++) yield;
+      for (let i = 0; i < 200; i++) {
+        segmentsRun += 1;
+        if (i === 20) handle.pause();
+        yield;
+      }
       return 200;
     }
     const task = create({ task: work, timeSliceMs: 0.0001 });
+    handle = task;
 
     task.start();
-    task.pause();
-    await tick();
+    await waitUntilParked(() => segmentsRun);
     expect(task.getSnapshot().status).toBe('paused');
     task.resume();
     const outcome = await task.settled;
