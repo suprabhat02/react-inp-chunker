@@ -1,0 +1,10 @@
+{
+  "name": "react-inp-chunker-core",
+  "description": "Resolution shim for `react-inp-chunker/core` under TypeScript's classic (node10) module resolution, which predates the exports map and looks for a directory of this name. Modern resolvers read the exports map in the root package.json and never see this file. Keep the paths below in step with that map.",
+  "private": true,
+  "type": "module",
+  "main": "../dist/core/index.cjs",
+  "module": "../dist/core/index.js",
+  "types": "../dist/core/index.d.ts",
+  "sideEffects": false
+}

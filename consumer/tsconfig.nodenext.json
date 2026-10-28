@@ -1,0 +1,18 @@
+{
+  // How Node resolves this package: the strictest check of the exports
+  // map, and the one that catches ESM/CJS declaration mismatches.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "jsx": "react-jsx",
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": []
+  },
+  "include": ["index.ts", "require.cts"]
+}

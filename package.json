@@ -26,26 +26,48 @@
   "type": "module",
   "sideEffects": false,
   "engines": {
-    "node": ">=22.12"
+    "node": ">=18"
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
       "production": {
-        "import": "./dist/production/index.js",
-        "require": "./dist/production/index.cjs"
+        "import": {
+          "types": "./dist/index.d.ts",
+          "default": "./dist/production/index.js"
+        },
+        "require": {
+          "types": "./dist/index.d.cts",
+          "default": "./dist/production/index.cjs"
+        }
       },
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./core": {
-      "types": "./dist/core/index.d.ts",
       "production": {
-        "import": "./dist/production/core/index.js",
-        "require": "./dist/production/core/index.cjs"
+        "import": {
+          "types": "./dist/core/index.d.ts",
+          "default": "./dist/production/core/index.js"
+        },
+        "require": {
+          "types": "./dist/core/index.d.cts",
+          "default": "./dist/production/core/index.cjs"
+        }
       },
-      "import": "./dist/core/index.js",
-      "require": "./dist/core/index.cjs"
+      "import": {
+        "types": "./dist/core/index.d.ts",
+        "default": "./dist/core/index.js"
+      },
+      "require": {
+        "types": "./dist/core/index.d.cts",
+        "default": "./dist/core/index.cjs"
+      }
     },
     "./package.json": "./package.json"
   },
@@ -54,6 +76,7 @@
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
+    "core",
     "README.md",
     "LICENSE"
   ],
@@ -72,28 +95,38 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "size": "size-limit",
-    "verify": "npm run lint && npm run format:check && npm run typecheck && npm run test:coverage && npm run build && npm run size",
+    "verify": "npm run lint && npm run format:check && npm run typecheck && npm run test:coverage && npm run build && npm run api:check && npm run lint:package && npm run types:resolution && npm run types:consumer && npm run size",
     "prepublishOnly": "npm run verify",
-    "bench": "npm run build && node bench/overhead.mjs"
+    "bench": "npm run build && node bench/overhead.mjs",
+    "api:check": "node scripts/api-surface.mjs",
+    "api:update": "node scripts/api-surface.mjs --update",
+    "lint:package": "publint --strict",
+    "types:resolution": "node scripts/check-type-resolution.mjs",
+    "types:consumer": "tsc -p consumer/tsconfig.bundler.json && tsc -p consumer/tsconfig.nodenext.json",
+    "test:browser": "npm run build && node tests/browser/yielding.mjs"
   },
   "devDependencies": {
+    "@arethetypeswrong/core": "^0.18.2",
     "@eslint/js": "10.0.1",
     "@size-limit/preset-small-lib": "14.3.0",
     "@testing-library/react": "16.3.3",
-    "@types/node": "24.1.0",
+    "@types/node": "^26.6.5",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitest/coverage-v8": "5.0.5",
     "eslint": "10.13.0",
     "eslint-plugin-react-hooks": "7.1.1",
+    "fast-check": "^4.5.0",
     "globals": "17.13.0",
-    "jsdom": "26.1.0",
+    "jsdom": "^30.1.3",
+    "playwright": "^1.63.0",
     "prettier": "3.9.10",
+    "publint": "^0.3.12",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "size-limit": "14.3.0",
     "tsdown": "0.23.2",
-    "typescript": "6.0.3",
+    "typescript": "^6.0.3",
     "typescript-eslint": "8.72.0",
     "vitest": "5.0.5"
   },

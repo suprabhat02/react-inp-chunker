@@ -1,0 +1,8 @@
+{
+  "name": "react-inp-chunker-compat-typescript7",
+  "private": true,
+  "description": "The newest TypeScript major, checked so a consumer on the latest compiler is never the one to discover a problem. Installed with npm ci from its own lockfile.",
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
+}

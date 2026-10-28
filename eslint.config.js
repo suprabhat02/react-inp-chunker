@@ -73,4 +73,12 @@ export default defineConfig(
     files: ['tests/**'],
     rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
   },
+  {
+    // consumer/ is compiled by its own tsconfigs against the *published*
+    // declarations, under each module-resolution mode and each supported
+    // TypeScript version (npm run types:consumer). It is deliberately not
+    // part of the library's own program, so the project service cannot
+    // type it here; `npm run types:consumer` is what checks it.
+    ignores: ['consumer/'],
+  },
 );

@@ -9,71 +9,169 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Least privilege by default. Any job that needs more asks for it itself.
 permissions:
   contents: read
 
+# Every action is pinned to a commit, not a tag: a tag can be moved to point
+# at different code, and these run with access to the repository. The comment
+# after each is the release that commit belongs to, so Dependabot can keep
+# them current and a reviewer can read them.
 jobs:
   quality:
-    name: Lint, types, tests + coverage, build, size
+    name: Lint, types, tests, package, size
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 0 # full history, for the authorship check
+          persist-credentials: false
       - name: Authorship (people only, every commit)
         run: node scripts/check-authorship.mjs
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      # The same gate as `npm run verify`, run step by step so a failure
+      # names itself in the job summary instead of hiding inside one script.
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck
       - name: Tests + 100% coverage
         run: npm run test:coverage
       - run: npm run build
+      - name: Public API surface unchanged
+        run: npm run api:check
+      - name: Package manifest (publint)
+        run: npm run lint:package
+      - name: Types resolve under every module mode
+        run: npm run types:resolution
+      - name: Published types compile for a consumer
+        run: npm run types:consumer
       - name: Bundle size budgets
         run: npm run size
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: dist
           path: dist
           retention-days: 7
 
-  # The peer range promises React 18, so React 18 gets the same scrutiny:
-  # types, the whole test suite, and the packed package loaded the way a
-  # consumer loads it (import and require). React 18 comes from
-  # compat/react18 and its own lockfile — no job installs unpinned versions.
-  react18:
-    name: React 18 — types, tests, packed-package smoke test
+  # The peer range promises React 18 and 19, and engines promises Node 18+.
+  # Both are tested rather than asserted: the suite runs on each React major,
+  # and the packed tarball is loaded — import and require — on each Node.
+  # React 18 comes from compat/react18 and its own lockfile, so no job
+  # installs an unpinned version.
+  runtimes:
+    name: Node ${{ matrix.node }} / React ${{ matrix.react }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22, 24]
+        react: [19]
+        include:
+          - node: 22
+            react: 18
+          - node: 24
+            react: 18
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          node-version-file: .nvmrc
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: ${{ matrix.node }}
           cache: npm
           cache-dependency-path: |
             package-lock.json
             compat/react18/package-lock.json
       - run: npm ci
-      - run: npm ci --prefix compat/react18 --ignore-scripts
-      - name: Types against React 18
-        run: npm run typecheck:react18
-      - name: Test suite on React 18
+      - if: matrix.react == 18
+        run: npm ci --prefix compat/react18 --ignore-scripts
+      - name: Types against React ${{ matrix.react }}
+        run: ${{ matrix.react == 18 && 'npm run typecheck:react18' || 'npm run typecheck' }}
+      - name: Test suite on React ${{ matrix.react }}
         run: npm test
         env:
           # tests/react-version.test.ts fails unless this really took effect.
-          REACT_VERSION: '18'
+          REACT_VERSION: ${{ matrix.react }}
       - run: npm run build
-      - run: npm pack --pack-destination compat/react18
-      - name: Packed package on React 18 (import + require)
-        working-directory: compat/react18
+      - name: Packed package, installed as a consumer installs it
         run: |
-          npm install --no-save --ignore-scripts ./react-inp-chunker-*.tgz
-          # `timeout`: a leaked handle (an unclosed MessagePort, say) shows up
-          # as a process that finishes its work and then never exits.
-          timeout 60 node consumer-smoke.mjs
-          timeout 60 node consumer-smoke.cjs
+          if [ "${{ matrix.react }}" = "18" ]; then
+            target=compat/react18
+          else
+            target="$RUNNER_TEMP/consumer"
+            mkdir -p "$target"
+            npm init -y --prefix "$target" > /dev/null
+            npm install --prefix "$target" react@19 react-dom@19
+          fi
+          npm pack --pack-destination "$target"
+          npm install --prefix "$target" --no-save --ignore-scripts "$target"/react-inp-chunker-*.tgz
+          EXPECT_REACT_MAJOR=${{ matrix.react }} node scripts/run-smoke.mjs "$target"
+          # Once more through the production export condition, which is what
+          # a bundled application resolves.
+          EXPECT_REACT_MAJOR=${{ matrix.react }} node scripts/run-smoke.mjs "$target" --conditions=production
+          rm -f "$target"/react-inp-chunker-*.tgz
+
+  # Consumers compile the published declarations with whatever TypeScript
+  # they have. Both ends of the supported range are checked, each pinned in
+  # its own compat directory with its own lockfile.
+  typescript:
+    name: TypeScript ${{ matrix.typescript }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - typescript: '5.0 (oldest supported)'
+            directory: compat/typescript5
+          - typescript: '7 (newest major)'
+            directory: compat/typescript7
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            ${{ matrix.directory }}/package-lock.json
+      - run: npm ci
+      - run: npm ci --prefix ${{ matrix.directory }} --ignore-scripts
+      # Built with the project's own TypeScript (the declaration bundler uses
+      # its API), then the output is checked with the version under test.
+      - run: npm run build
+      - run: ${{ matrix.directory }}/node_modules/.bin/tsc --version
+      - name: Published declarations, bundler resolution
+        run: ${{ matrix.directory }}/node_modules/.bin/tsc -p consumer/tsconfig.bundler.json
+      - name: Published declarations, Node resolution
+        run: ${{ matrix.directory }}/node_modules/.bin/tsc -p consumer/tsconfig.nodenext.json
+
+  browser:
+    name: Real browsers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Install browsers
+        run: npx playwright install --with-deps chromium webkit
+      # jsdom cannot prove that the main thread was ever given back. These
+      # run in real engines: Chromium for the scheduler.yield() path, WebKit
+      # for the MessageChannel fallback.
+      - name: Yielding behaviour in Chromium and WebKit
+        run: npm run test:browser

@@ -1,0 +1,52 @@
+# react-inp-chunker
+type ChunkEvent: type ChunkEvent = { readonly type: 'START'; } | { readonly type: 'PAUSE'; } | { readonly type: 'RESUME'; } | { readonly type: 'CANCEL'; } | { readonly type: 'COMPLETE'; } | { readonly type: 'ERROR'; readonly error: unknown; };
+type ChunkMachineState: interface ChunkMachineState { readonly status: ChunkStatus; readonly error?: unknown; }
+type ChunkScheduler: interface ChunkScheduler<R> { start(): void; pause(): void; resume(): void; cancel(): void; getSnapshot(): ChunkSnapshot<R>; getResults(): readonly R[] | undefined; subscribe(listener: () => void): () => void; readonly settled: Promise<ChunkSchedulerResult<R>>; }
+type ChunkSchedulerOptions: interface ChunkSchedulerOptions<T, R> { readonly items: readonly T[]; readonly processItem: (item: T, index: number) => R; readonly timeSliceMs?: number; readonly batchSize?: number; readonly collectResults?: boolean; readonly onItem?: (result: R, item: T, index: number) => void; readonly signal?: AbortSignal; readonly yieldStrategy?: YieldStrategy; }
+type ChunkSchedulerResult: interface ChunkSchedulerResult<R> { readonly status: 'done' | 'cancelled' | 'error'; readonly results: readonly R[]; readonly error?: unknown; }
+type ChunkSnapshot: interface ChunkSnapshot<R = unknown> { readonly status: ChunkStatus; readonly processed: number; readonly total: number; readonly error?: unknown; readonly results?: readonly R[]; }
+type ChunkStatus: type ChunkStatus = 'idle' | 'processing' | 'paused' | 'done' | 'cancelled' | 'error';
+type DeferredGenerator: type DeferredGenerator<T> = Generator<void, T, void>;
+type DeferredTask: interface DeferredTask<T> { start(): void; pause(): void; resume(): void; cancel(): void; getSnapshot(): DeferredTaskSnapshot<T>; getValue(): T | undefined; subscribe(listener: () => void): () => void; readonly settled: Promise<DeferredTaskResult<T>>; }
+type DeferredTaskOptions: interface DeferredTaskOptions<T> { readonly task: () => DeferredGenerator<T>; readonly timeSliceMs?: number; readonly batchSize?: number; readonly signal?: AbortSignal; readonly yieldStrategy?: YieldStrategy; }
+type DeferredTaskResult: interface DeferredTaskResult<T> { readonly status: 'done' | 'cancelled' | 'error'; readonly value?: T; readonly error?: unknown; }
+type DeferredTaskSnapshot: interface DeferredTaskSnapshot<T = unknown> { readonly status: ChunkStatus; readonly error?: unknown; readonly value?: T; }
+type UseChunkedTaskOptions: interface UseChunkedTaskOptions<T, R> { readonly timeSliceMs?: number; readonly batchSize?: number; readonly collectResults?: boolean; readonly autoStart?: boolean; readonly onItem?: (result: R, item: T, index: number) => void; }
+type UseChunkedTaskState: interface UseChunkedTaskState<R> { readonly status: ChunkStatus; readonly processed: number; readonly total: number; readonly error: unknown; readonly results: readonly R[] | undefined; readonly isIdle: boolean; readonly isProcessing: boolean; readonly isPaused: boolean; readonly isDone: boolean; readonly isCancelled: boolean; readonly isError: boolean; readonly start: () => void; readonly pause: () => void; readonly resume: () => void; readonly cancel: () => void; }
+type UseDeferredTaskOptions: interface UseDeferredTaskOptions { readonly timeSliceMs?: number; readonly batchSize?: number; readonly autoStart?: boolean; }
+type UseDeferredTaskState: interface UseDeferredTaskState<T> { readonly status: ChunkStatus; readonly error: unknown; readonly value: T | undefined; readonly isIdle: boolean; readonly isProcessing: boolean; readonly isPaused: boolean; readonly isDone: boolean; readonly isCancelled: boolean; readonly isError: boolean; readonly start: () => void; readonly pause: () => void; readonly resume: () => void; readonly cancel: () => void; }
+type YieldStrategy: type YieldStrategy = 'scheduler-yield' | 'message-channel' | 'set-timeout';
+value useChunkedTask: <T, R>(items: readonly T[], processItem: (item: T, index: number) => R, options?: UseChunkedTaskOptions<T, R> | undefined) => UseChunkedTaskState<R>
+value useDeferredTask: <T>(task: () => DeferredGenerator<T>, deps: readonly unknown[], options?: UseDeferredTaskOptions | undefined) => UseDeferredTaskState<T>
+
+# react-inp-chunker/core
+type ChunkEvent: type ChunkEvent = { readonly type: 'START'; } | { readonly type: 'PAUSE'; } | { readonly type: 'RESUME'; } | { readonly type: 'CANCEL'; } | { readonly type: 'COMPLETE'; } | { readonly type: 'ERROR'; readonly error: unknown; };
+type ChunkMachineState: interface ChunkMachineState { readonly status: ChunkStatus; readonly error?: unknown; }
+type ChunkScheduler: interface ChunkScheduler<R> { start(): void; pause(): void; resume(): void; cancel(): void; getSnapshot(): ChunkSnapshot<R>; getResults(): readonly R[] | undefined; subscribe(listener: () => void): () => void; readonly settled: Promise<ChunkSchedulerResult<R>>; }
+type ChunkSchedulerOptions: interface ChunkSchedulerOptions<T, R> { readonly items: readonly T[]; readonly processItem: (item: T, index: number) => R; readonly timeSliceMs?: number; readonly batchSize?: number; readonly collectResults?: boolean; readonly onItem?: (result: R, item: T, index: number) => void; readonly signal?: AbortSignal; readonly yieldStrategy?: YieldStrategy; }
+type ChunkSchedulerResult: interface ChunkSchedulerResult<R> { readonly status: 'done' | 'cancelled' | 'error'; readonly results: readonly R[]; readonly error?: unknown; }
+type ChunkSnapshot: interface ChunkSnapshot<R = unknown> { readonly status: ChunkStatus; readonly processed: number; readonly total: number; readonly error?: unknown; readonly results?: readonly R[]; }
+type ChunkStatus: type ChunkStatus = 'idle' | 'processing' | 'paused' | 'done' | 'cancelled' | 'error';
+type DeferredGenerator: type DeferredGenerator<T> = Generator<void, T, void>;
+type DeferredTask: interface DeferredTask<T> { start(): void; pause(): void; resume(): void; cancel(): void; getSnapshot(): DeferredTaskSnapshot<T>; getValue(): T | undefined; subscribe(listener: () => void): () => void; readonly settled: Promise<DeferredTaskResult<T>>; }
+type DeferredTaskOptions: interface DeferredTaskOptions<T> { readonly task: () => DeferredGenerator<T>; readonly timeSliceMs?: number; readonly batchSize?: number; readonly signal?: AbortSignal; readonly yieldStrategy?: YieldStrategy; }
+type DeferredTaskResult: interface DeferredTaskResult<T> { readonly status: 'done' | 'cancelled' | 'error'; readonly value?: T; readonly error?: unknown; }
+type DeferredTaskSnapshot: interface DeferredTaskSnapshot<T = unknown> { readonly status: ChunkStatus; readonly error?: unknown; readonly value?: T; }
+type ShouldYieldOptions: interface ShouldYieldOptions { sliceStartedAt: number; timeSliceMs?: number; }
+type TerminalChunkStatus: type TerminalChunkStatus = 'done' | 'cancelled' | 'error';
+type YieldStrategy: type YieldStrategy = 'scheduler-yield' | 'message-channel' | 'set-timeout';
+type YieldToMainOptions: interface YieldToMainOptions { strategy?: YieldStrategy; }
+value createChunkScheduler: <T, R>(options: ChunkSchedulerOptions<T, R>) => ChunkScheduler<R>
+value createDeferredTask: <T>(options: DeferredTaskOptions<T>) => DeferredTask<T>
+value DEFAULT_TIME_SLICE_MS: 5
+value initialChunkState: ChunkMachineState
+value isInputPending: () => boolean
+value isTerminal: (status: ChunkStatus) => status is TerminalChunkStatus
+value now: () => number
+value resolveYieldStrategy: () => YieldStrategy
+value shouldYieldNow: (options: ShouldYieldOptions) => boolean
+value supportsInputPending: () => boolean
+value supportsMessageChannel: () => boolean
+value supportsSchedulerYield: () => boolean
+value transition: (state: ChunkMachineState, event: ChunkEvent) => ChunkMachineState
+value yieldToMain: (options?: YieldToMainOptions | undefined) => Promise<void>

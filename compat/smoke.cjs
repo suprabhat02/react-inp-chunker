@@ -1,4 +1,5 @@
-// The CommonJS half of consumer-smoke.mjs: the same checks through `require`.
+// The CommonJS half of smoke.mjs: the same package through `require`,
+// which resolves the .d.cts declarations and the .cjs builds.
 const assert = require('node:assert/strict');
 
 const { createElement: h, version } = require('react');
@@ -6,10 +7,17 @@ const { renderToStaticMarkup } = require('react-dom/server');
 const { useChunkedTask, useDeferredTask } = require('react-inp-chunker');
 const { createChunkScheduler, yieldToMain } = require('react-inp-chunker/core');
 
-assert.equal(version.split('.')[0], '18', `expected React 18, got ${version}`);
+const expectedReactMajor = process.env.EXPECT_REACT_MAJOR;
+if (expectedReactMajor !== undefined) {
+  assert.equal(
+    version.split('.')[0],
+    expectedReactMajor,
+    `expected React ${expectedReactMajor}, got ${version}`,
+  );
+}
 
 function Chunked() {
-  const task = useChunkedTask([1, 2, 3], (n) => n * 2);
+  const task = useChunkedTask([1, 2, 3], (n) => n * 2, { collectResults: false });
   return h('p', null, `${task.status}:${String(task.processed)}/${String(task.total)}`);
 }
 
@@ -29,11 +37,20 @@ assert.equal(
 );
 
 async function main() {
-  const scheduler = createChunkScheduler({ items: [1, 2, 3], processItem: (n) => n * 2 });
+  const scheduler = createChunkScheduler({
+    items: [1, 2, 3],
+    processItem: (n) => n * 2,
+    batchSize: 2,
+  });
   scheduler.start();
   assert.deepEqual(await scheduler.settled, { status: 'done', results: [2, 4, 6] });
   await yieldToMain();
-  console.log(`✓ require: react-inp-chunker loads and renders on React ${version}`);
+
+  const resolved = require.resolve('react-inp-chunker/core');
+  const condition = resolved.includes('/dist/production/') ? 'production' : 'default';
+  console.log(
+    `✓ require: Node ${process.versions.node}, React ${version}, ${condition} build`,
+  );
 }
 
 main().catch((error) => {

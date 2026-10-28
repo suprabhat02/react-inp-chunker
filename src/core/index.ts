@@ -1,4 +1,9 @@
-export type { ChunkEvent, ChunkMachineState, ChunkStatus } from './chunk-machine.js';
+export type {
+  ChunkEvent,
+  ChunkMachineState,
+  ChunkStatus,
+  TerminalChunkStatus,
+} from './chunk-machine.js';
 export { initialChunkState, isTerminal, transition } from './chunk-machine.js';
 
 export type {
