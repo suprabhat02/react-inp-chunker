@@ -293,16 +293,16 @@ describe('production module graph', () => {
     const { createChunkScheduler: create } = await loadProduction();
     // Paused from inside the work, so the loop's next status check is
     // guaranteed to see it and park.
-    let handle: ReturnType<typeof create<number, number>>;
     const scheduler = create({
       items: Array.from({ length: 200 }, (_, i) => i),
       processItem: (item: number) => {
-        if (item === 20) handle.pause();
+        // Reads `scheduler` only once the work runs, which is after the
+        // declaration below has completed.
+        if (item === 20) scheduler.pause();
         return item;
       },
       timeSliceMs: 0.0001, // yield at every opportunity
     });
-    handle = scheduler;
 
     scheduler.start();
     await waitUntilParked(() => scheduler.getSnapshot().processed);
@@ -318,17 +318,16 @@ describe('production module graph', () => {
   it('pauses, resumes and finishes a generator task without a word', async () => {
     const { createDeferredTask: create } = await loadProduction();
     let segmentsRun = 0;
-    let handle: ReturnType<typeof create<number>>;
     function* work(): DeferredGenerator<number> {
       for (let i = 0; i < 200; i++) {
         segmentsRun += 1;
-        if (i === 20) handle.pause();
+        // `task` is initialized before the generator is ever advanced.
+        if (i === 20) task.pause();
         yield;
       }
       return 200;
     }
     const task = create({ task: work, timeSliceMs: 0.0001 });
-    handle = task;
 
     task.start();
     await waitUntilParked(() => segmentsRun);
