@@ -80,6 +80,21 @@ item. Your component re-renders with progress once per slice, not once per item.
 - Pass `{ autoStart: false }` to wait for `start()`, and `onItem` to consume
   results while the task is still running. `pause()`, `resume()` and `cancel()`
   work at any point, and unmounting cancels.
+- `results` is `undefined` until the task settles, and is then set in the same
+  render that first reports `done`, `cancelled` or `error` — never a render
+  later, so there is nothing to tear under concurrent React.
+
+Two options exist for work at the extremes, and most code needs neither:
+
+| Option                    | Default | Use it when                                                                                                                                                         |
+| ------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `batchSize: number`       | `1`     | An item takes nanoseconds, so reading the clock costs more than the work. A slice may then overrun its budget by up to `batchSize` items — that is the whole trade. |
+| `collectResults: boolean` | `true`  | You already take results through `onItem` and don't want a million-entry array retained. `results` settles as an empty array.                                       |
+
+In development, the library measures itself and says so: a single item that
+blocks for over 50 ms gets a warning naming its index, and work cheap enough that
+the clock dominates gets a concrete `batchSize` suggestion. Both are compiled out
+of production builds.
 
 ### Work that isn't a list: `useDeferredTask`
 
@@ -125,12 +140,58 @@ The [documentation](https://suprabhat02.github.io/react-inp-chunker/#api) has th
 full API, when to reach for something else (a Web Worker, `startTransition`,
 virtualization), and answers to common questions.
 
+## In production
+
+| What             | Supported                      | Proven by                                                |
+| ---------------- | ------------------------------ | -------------------------------------------------------- |
+| React            | 18 and 19                      | the whole test suite runs on both majors                 |
+| Node             | 18, 20, 22, 24                 | the packed tarball is imported and required on each      |
+| TypeScript       | 5.0 to 7                       | the published declarations compile at both ends          |
+| Module systems   | ESM and CommonJS               | separate builds and declarations, both loaded in CI      |
+| Resolution       | bundler, NodeNext, node10      | `publint` and `are-the-types-wrong` run over the tarball |
+| Browsers         | anything with `MessageChannel` | yielding measured in real Chromium and WebKit            |
+| Server rendering | yes                            | both hooks render an idle state and run nothing          |
+
+Dropping any of these is a breaking change; [SUPPORT.md](SUPPORT.md) has the
+versioning rules.
+
+**Size**, minified and brotli-compressed, with no dependencies of its own:
+`useChunkedTask` 1.83 kB, `useDeferredTask` 1.72 kB, `createChunkScheduler`
+without React 1.34 kB, everything together 2.35 kB. CI fails if a change pushes
+any of them over budget.
+
+Bundlers that set the `production` export condition — webpack, Vite, Rspack,
+Parcel — resolve to a build with the development warnings compiled out, not
+merely guarded by a flag.
+
+**What it guarantees.** A slice overruns by at most one item (or `batchSize`
+items, if you raised it), because the clock is read after every item rather than
+on an average. A settled task never reports its results a render late. Nothing
+runs after `cancel()`, no state update arrives after unmount, and `settled`
+resolves exactly once and never rejects. The loop allocates nothing per item.
+
+**Supply chain.** Published from CI through npm Trusted Publishing, so no
+long-lived token exists to leak, with signed provenance you can verify yourself:
+
+```sh
+npm audit signatures
+gh attestation verify "$(npm pack react-inp-chunker --silent)" \
+  -R suprabhat02/react-inp-chunker
+```
+
+GitHub Actions are pinned to commit SHAs, CI fails on a known vulnerability at
+any severity, and there are no runtime dependencies to audit.
+
 ## Quality
 
 An exhaustive test suite (state-machine truth table, every yield fallback path,
-pause/resume/cancel races, reentrancy, SSR safety) at 100% statement, branch,
-function and line coverage, run on React 19 and React 18, plus a smoke test of the
-packed package through `import` and `require`. See
+slice bounds on a virtual clock, property tests, pause/resume/cancel races,
+reentrancy, SSR safety) at 100% statement, branch, function and line coverage,
+run on React 19 and React 18. On top of that, every push checks the packed
+tarball end to end: imported and required on four Node versions, compiled by two
+TypeScript majors, linted by `publint`, resolved by `are-the-types-wrong`,
+measured for real input delay in Chromium and WebKit, and diffed against a
+golden public API surface so no export changes by accident. See
 [CONTRIBUTING.md](CONTRIBUTING.md) for how the project is organised and verified.
 
 If react-inp-chunker saves you a long task, a

@@ -6,6 +6,8 @@ export const LINKS = {
   npm: 'https://www.npmjs.com/package/react-inp-chunker',
   changelog: 'https://github.com/suprabhat02/react-inp-chunker/blob/main/CHANGELOG.md',
   issues: 'https://github.com/suprabhat02/react-inp-chunker/issues',
+  support: 'https://github.com/suprabhat02/react-inp-chunker/blob/main/SUPPORT.md',
+  security: 'https://github.com/suprabhat02/react-inp-chunker/blob/main/SECURITY.md',
   license: 'https://github.com/suprabhat02/react-inp-chunker/blob/main/LICENSE',
   portfolio: 'https://suprabhat-dev.com/',
   github: 'https://github.com/suprabhat02',
@@ -31,6 +33,7 @@ export const NAV: readonly NavItem[] = [
   { id: 'playground', label: 'Playground' },
   { id: 'get-started', label: 'Get started' },
   { id: 'api', label: 'API' },
+  { id: 'production', label: 'Production' },
   { id: 'when-to-use', label: 'When to use it' },
   { id: 'author', label: 'Author' },
 ];

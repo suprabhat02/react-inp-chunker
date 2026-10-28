@@ -41,6 +41,20 @@ export const CHUNKED_OPTIONS: readonly ApiRow[] = [
       'The longest stretch of work before yielding to the browser. Zero, negative or NaN fall back to 5. Changing it sets up a new run.',
   },
   {
+    name: 'batchSize',
+    type: 'number',
+    defaultValue: '1',
+    description:
+      'How many items to run between clock readings. Leave it alone unless an item takes nanoseconds, where reading the clock costs more than the work itself; a slice may then overrun its budget by up to batchSize items.',
+  },
+  {
+    name: 'collectResults',
+    type: 'boolean',
+    defaultValue: 'true',
+    description:
+      'Keep every result in results. Set it to false when you already take results through onItem, so a million-item run holds no million-entry array. results is then an empty array.',
+  },
+  {
     name: 'autoStart',
     type: 'boolean',
     defaultValue: 'true',
@@ -111,7 +125,7 @@ export const CHUNKED_RETURNS: readonly ApiRow[] = [
     name: 'results',
     type: 'readonly R[] | undefined',
     description:
-      'Set when the task ends: every result when done, the ones finished so far when cancelled or failed. undefined until then.',
+      'Set when the task ends: every result when done, the ones finished so far when cancelled or failed, an empty array with collectResults: false. undefined until then, and always set in the same render that first reports a finished status.',
   },
   ...SHARED_STATE,
 ];
@@ -134,7 +148,7 @@ export const DEFERRED_ARGS: readonly ApiRow[] = [
     type: 'UseDeferredTaskOptions',
     defaultValue: '{}',
     description:
-      'timeSliceMs (default 5) and autoStart (default true), as for useChunkedTask.',
+      'timeSliceMs (default 5), batchSize (default 1, counted in segments rather than items) and autoStart (default true), as for useChunkedTask.',
   },
 ];
 
@@ -169,12 +183,13 @@ export const CORE_EXPORTS: readonly ApiRow[] = [
     name: 'createChunkScheduler(options)',
     type: 'ChunkScheduler<R>',
     description:
-      'The engine behind useChunkedTask. Options: items, processItem, timeSliceMs, onItem, signal (an AbortSignal).',
+      'The engine behind useChunkedTask. Options: items, processItem, timeSliceMs, batchSize, collectResults, onItem, signal (an AbortSignal).',
   },
   {
     name: 'createDeferredTask(options)',
     type: 'DeferredTask<T>',
-    description: 'The engine behind useDeferredTask. Options: task, timeSliceMs, signal.',
+    description:
+      'The engine behind useDeferredTask. Options: task, timeSliceMs, batchSize, signal.',
   },
   {
     name: '.start() .pause() .resume() .cancel()',
@@ -214,5 +229,17 @@ export const CORE_EXPORTS: readonly ApiRow[] = [
     name: 'DEFAULT_TIME_SLICE_MS',
     type: 'number',
     description: '5.',
+  },
+  {
+    name: 'isTerminal(status)',
+    type: 'status is TerminalChunkStatus',
+    description:
+      'Whether a status is one a task cannot leave: done, cancelled or error. Narrows, and TerminalChunkStatus is exported so you can name it.',
+  },
+  {
+    name: 'transition(state, event)',
+    type: 'ChunkMachineState',
+    description:
+      'The state machine itself, as a pure reducer. Returns the identical object when an event does not apply, so a caller can skip notifying on a no-op.',
   },
 ];

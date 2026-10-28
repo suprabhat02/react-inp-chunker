@@ -6,6 +6,7 @@ import { GetStarted } from './sections/GetStarted.tsx';
 import { Hero } from './sections/Hero.tsx';
 import { HowItWorks } from './sections/HowItWorks.tsx';
 import { PlaygroundSection } from './sections/PlaygroundSection.tsx';
+import { Production } from './sections/Production.tsx';
 import { WhenToUse } from './sections/WhenToUse.tsx';
 import { Why } from './sections/Why.tsx';
 
@@ -24,6 +25,7 @@ export function App() {
         <PlaygroundSection />
         <GetStarted />
         <ApiReference />
+        <Production />
         <WhenToUse />
         <Author />
       </main>
