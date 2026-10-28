@@ -6,6 +6,7 @@
 // a test suite that imports from src/ cannot see a broken exports map, a
 // missing file, or a build that references an API the runtime lacks.
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
 
 import { createElement as h, version } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -81,8 +82,12 @@ assert.deepEqual(await deferred.settled, { status: 'done', value: 42 });
 // never exits, which the timeout around this script catches.
 await yieldToMain();
 
-const url = import.meta.resolve('react-inp-chunker/core');
-const condition = url.includes('/dist/production/') ? 'production' : 'default';
+// Which build the export conditions actually selected. Resolved through
+// createRequire rather than import.meta.resolve, which is only synchronous
+// from Node 20.6 and needs a flag before that — the point of this script is
+// to run unchanged on every Node version the package claims to support.
+const resolved = createRequire(import.meta.url).resolve('react-inp-chunker/core');
+const condition = resolved.includes('/dist/production/') ? 'production' : 'default';
 console.log(
   `✓ import: Node ${process.versions.node}, React ${version}, ${condition} build`,
 );

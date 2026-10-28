@@ -58,32 +58,26 @@ jobs:
           path: dist
           retention-days: 7
 
-  # The peer range promises React 18 and 19, and engines promises Node 18+.
-  # Both are tested rather than asserted: the suite runs on each React major,
-  # and the packed tarball is loaded — import and require — on each Node.
-  # React 18 comes from compat/react18 and its own lockfile, so no job
-  # installs an unpinned version.
-  runtimes:
-    name: Node ${{ matrix.node }} / React ${{ matrix.react }}
+  # The peer range promises React 18 and 19, so the whole suite runs on each
+  # major and the packed tarball is loaded against each. React 18 comes from
+  # compat/react18 and its own lockfile, so no job installs an unpinned
+  # version. Node here is the toolchain's own (.nvmrc) — which Node a
+  # consumer can use is a separate question, answered by node-support below.
+  react:
+    name: React ${{ matrix.react }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        node: [18, 20, 22, 24]
-        react: [19]
-        include:
-          - node: 22
-            react: 18
-          - node: 24
-            react: 18
+        react: [18, 19]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: ${{ matrix.node }}
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -105,9 +99,12 @@ jobs:
             target=compat/react18
           else
             target="$RUNNER_TEMP/consumer"
-            mkdir -p "$target"
-            npm init -y --prefix "$target" > /dev/null
-            npm install --prefix "$target" react@19 react-dom@19
+            # `npm init` inside the directory, never `--prefix` from here:
+            # with --prefix it writes the manifest it finds in the current
+            # directory instead, filling this package's own dependencies
+            # with every installed dev package.
+            mkdir -p "$target" && (cd "$target" && npm init -y > /dev/null)
+            (cd "$target" && npm install --no-fund --no-audit react@19 react-dom@19)
           fi
           npm pack --pack-destination "$target"
           npm install --prefix "$target" --no-save --ignore-scripts "$target"/react-inp-chunker-*.tgz
@@ -116,6 +113,49 @@ jobs:
           # a bundled application resolves.
           EXPECT_REACT_MAJOR=${{ matrix.react }} node scripts/run-smoke.mjs "$target" --conditions=production
           rm -f "$target"/react-inp-chunker-*.tgz
+      - name: The manifest is exactly what it was
+        run: git diff --exit-code package.json package-lock.json
+
+  # `engines` promises Node 18+. That is a promise about running the
+  # published package, not about running this repository's toolchain, which
+  # needs a newer Node than some of the versions below. So the tarball is
+  # built with the toolchain's Node and then loaded — import and require,
+  # through both the default and the production export conditions — by each
+  # Node that a consumer may be on.
+  node-support:
+    name: Node ${{ matrix.node }} (packed package)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22, 24]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Build and pack with the toolchain's Node
+        run: |
+          npm ci
+          npm run build
+          npm pack --pack-destination "$RUNNER_TEMP"
+      # Everything from here runs on the Node version under test.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Load it the way a consumer does
+        run: |
+          node --version
+          target="$RUNNER_TEMP/consumer"
+          mkdir -p "$target" && (cd "$target" && npm init -y > /dev/null)
+          (cd "$target" && npm install --no-fund --no-audit react@19 react-dom@19)
+          npm install --prefix "$target" --no-save --ignore-scripts "$RUNNER_TEMP"/react-inp-chunker-*.tgz
+          EXPECT_REACT_MAJOR=19 node scripts/run-smoke.mjs "$target"
+          EXPECT_REACT_MAJOR=19 node scripts/run-smoke.mjs "$target" --conditions=production
 
   # Consumers compile the published declarations with whatever TypeScript
   # they have. Both ends of the supported range are checked, each pinned in
