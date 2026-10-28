@@ -41,8 +41,10 @@ push.
 
 ### Changed
 
-- **Per-item overhead roughly halved**: 410 ns to 213 ns at the defaults, 59 ns
-  at `batchSize: 64`, and 17 ns with `collectResults: false`. The loop now
+- **Per-item overhead roughly halved**: from about 410 ns to about 210 ns at
+  the defaults, about 60 ns at `batchSize: 64`, and under 20 ns with
+  `collectResults: false`. (Measured by `npm run bench`; the absolute figures
+  depend on the machine, the ratios much less so.) The loop now
   allocates nothing per item — no iterator tuples, no snapshot objects, no
   options objects — and publishes progress once per slice rather than once per
   item.
