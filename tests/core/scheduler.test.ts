@@ -7,6 +7,9 @@ import {
   resolveYieldStrategy,
   shouldYieldNow,
   supportsInputPending,
+  normalizeBatchSize,
+  normalizeTimeSliceMs,
+  resolveInputPending,
   supportsMessageChannel,
   supportsSchedulerYield,
   yieldToMain,
@@ -225,5 +228,63 @@ describe('shouldYieldNow()', () => {
     vi.stubGlobal('navigator', { scheduling: { isInputPending: () => false } });
     const sliceStartedAt = now();
     expect(shouldYieldNow({ sliceStartedAt, timeSliceMs: 10_000 })).toBe(false);
+  });
+});
+
+describe('resolveInputPending()', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('hands back the real probe when the runtime exposes it', () => {
+    const probe = vi.fn().mockReturnValue(true);
+    vi.stubGlobal('navigator', { scheduling: { isInputPending: probe } });
+
+    const resolved = resolveInputPending();
+
+    expect(resolved()).toBe(true);
+    expect(probe).toHaveBeenCalledTimes(1);
+  });
+
+  it('hands back a constant false — not a throwing call — where the API is missing', () => {
+    vi.stubGlobal('navigator', {});
+
+    const resolved = resolveInputPending();
+
+    expect(resolved()).toBe(false);
+    // Resolved once: the point of it is that callers stop re-detecting per item.
+    expect(resolved).toBe(resolveInputPending());
+  });
+});
+
+describe('normalizeTimeSliceMs()', () => {
+  it.each([
+    ['undefined', undefined],
+    ['zero', 0],
+    ['negative', -1],
+    ['NaN', Number.NaN],
+  ])('falls back to the default for %s', (_label, value) => {
+    expect(normalizeTimeSliceMs(value)).toBe(DEFAULT_TIME_SLICE_MS);
+  });
+
+  it('keeps a usable value', () => {
+    expect(normalizeTimeSliceMs(12.5)).toBe(12.5);
+  });
+});
+
+describe('normalizeBatchSize()', () => {
+  it.each([
+    ['undefined', undefined],
+    ['zero', 0],
+    ['negative', -8],
+    ['NaN', Number.NaN],
+    ['Infinity', Number.POSITIVE_INFINITY],
+    ['below one', 0.5],
+  ])('falls back to one item per check for %s', (_label, value) => {
+    expect(normalizeBatchSize(value)).toBe(1);
+  });
+
+  it('rounds down to whole items', () => {
+    expect(normalizeBatchSize(8.9)).toBe(8);
   });
 });

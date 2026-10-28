@@ -13,6 +13,12 @@ import { useEffectEvent } from './use-effect-event.js';
 export interface UseDeferredTaskOptions {
   /** Max ms of uninterrupted work before yielding. Default 5. */
   readonly timeSliceMs?: number;
+  /**
+   * Generator segments to run between clock checks. Default 1. Raise it
+   * only for segments measured in nanoseconds; a slice can then run up to
+   * `batchSize` segments past its budget.
+   */
+  readonly batchSize?: number;
   /** Start processing automatically when the task is (re)created. Default `true`. */
   readonly autoStart?: boolean;
 }
@@ -34,7 +40,7 @@ export interface UseDeferredTaskState<T> {
   readonly cancel: () => void;
 }
 
-const IDLE_SNAPSHOT: DeferredTaskSnapshot = { status: 'idle' };
+const IDLE_SNAPSHOT: DeferredTaskSnapshot<never> = { status: 'idle' };
 
 /**
  * Runs an arbitrary heavy, synchronous generator function in chunks, so it
@@ -52,7 +58,7 @@ export function useDeferredTask<T>(
   deps: readonly unknown[],
   options?: UseDeferredTaskOptions,
 ): UseDeferredTaskState<T> {
-  const { timeSliceMs, autoStart = true } = options ?? {};
+  const { timeSliceMs, batchSize, autoStart = true } = options ?? {};
 
   // Stable identity, always runs the latest `task` passed this render —
   // see useChunkedTask.ts for why this is useEffectEvent rather than a ref
@@ -72,6 +78,7 @@ export function useDeferredTask<T>(
       const deferredTask = createDeferredTask<T>({
         task: stableTask,
         ...(timeSliceMs !== undefined ? { timeSliceMs } : {}),
+        ...(batchSize !== undefined ? { batchSize } : {}),
       });
       controller.replace(deferredTask);
       if (autoStart) deferredTask.start();
@@ -88,7 +95,7 @@ export function useDeferredTask<T>(
     // caller-supplied array, the same pattern (and the same reason it can't
     // be statically verified) as useMemo/useEffect's own deps parameter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [...deps, timeSliceMs, autoStart, controller],
+    [...deps, timeSliceMs, batchSize, autoStart, controller],
   );
 
   const start = useCallback(() => controller.getCurrent()?.start(), [controller]);
@@ -96,15 +103,13 @@ export function useDeferredTask<T>(
   const resume = useCallback(() => controller.getCurrent()?.resume(), [controller]);
   const cancel = useCallback(() => controller.getCurrent()?.cancel(), [controller]);
 
-  // See useChunkedTask.ts for why reading this outside useSyncExternalStore
-  // is safe: status and value are always settled in the same synchronous
-  // turn, with no await between them.
-  const value = controller.getCurrent()?.getValue();
-
   return {
     status: snapshot.status,
     error: snapshot.error,
-    value,
+    // From the snapshot: the engine publishes the value before it
+    // announces `done`, so a concurrent render can never see one without
+    // the other. See useChunkedTask.ts.
+    value: snapshot.value,
     isIdle: snapshot.status === 'idle',
     isProcessing: snapshot.status === 'processing',
     isPaused: snapshot.status === 'paused',

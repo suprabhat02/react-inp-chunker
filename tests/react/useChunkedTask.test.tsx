@@ -264,3 +264,77 @@ describe('useChunkedTask() — unmount', () => {
     expect(processItem.mock.calls.length).toBe(callsAtUnmount);
   });
 });
+
+describe('useChunkedTask() — batchSize and collectResults', () => {
+  it('passes batchSize through and still processes every item once', async () => {
+    const items = Array.from({ length: 25 }, (_, i) => i);
+    const seen: number[] = [];
+    const { result } = renderHook(() =>
+      useChunkedTask(items, (x: number) => x, {
+        batchSize: 8,
+        onItem: (value) => seen.push(value),
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isDone).toBe(true);
+    });
+    expect(seen).toEqual(items);
+    expect(result.current.processed).toBe(25);
+  });
+
+  it('with collectResults: false, streams through onItem and settles with an empty results array', async () => {
+    const items = Array.from({ length: 10 }, (_, i) => i);
+    const streamed: number[] = [];
+    const { result } = renderHook(() =>
+      useChunkedTask(items, (x: number) => x * 3, {
+        collectResults: false,
+        onItem: (value) => streamed.push(value),
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isDone).toBe(true);
+    });
+    expect(streamed).toHaveLength(10);
+    expect(result.current.results).toEqual([]);
+  });
+
+  it('restarts the task when batchSize changes', async () => {
+    const items = [1, 2, 3];
+    const processItem = vi.fn((x: number) => x);
+    const { result, rerender } = renderHook(
+      ({ batchSize }: { batchSize: number }) =>
+        useChunkedTask(items, processItem, { batchSize }),
+      { initialProps: { batchSize: 1 } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.isDone).toBe(true);
+    });
+    const callsBefore = processItem.mock.calls.length;
+
+    rerender({ batchSize: 2 });
+    await waitFor(() => {
+      expect(processItem.mock.calls.length).toBeGreaterThan(callsBefore);
+    });
+  });
+
+  it('exposes results through the same snapshot that reports isDone', async () => {
+    const items = [1, 2, 3];
+    const seenWhileDone: (readonly number[] | undefined)[] = [];
+    const { result } = renderHook(() => {
+      const state = useChunkedTask(items, (x: number) => x * 2);
+      if (state.isDone) seenWhileDone.push(state.results);
+      return state;
+    });
+
+    await waitFor(() => {
+      expect(result.current.isDone).toBe(true);
+    });
+    // Every render that saw isDone also saw the results: no render observes
+    // a finished task with results still undefined.
+    expect(seenWhileDone.length).toBeGreaterThan(0);
+    expect(seenWhileDone.every((results) => results !== undefined)).toBe(true);
+  });
+});

@@ -59,6 +59,21 @@ export function supportsInputPending(): boolean {
 }
 
 /**
+ * Resolves the input-pending probe once, for callers that would otherwise
+ * run the feature detection on every item of a long task: walking
+ * `navigator.scheduling.isInputPending` through optional calls is wasted
+ * work a million times over. Returns a function that always answers
+ * `false` where the API is missing, so callers need no second branch.
+ */
+export function resolveInputPending(): () => boolean {
+  return supportsInputPending() ? isInputPending : returnsFalse;
+}
+
+function returnsFalse(): boolean {
+  return false;
+}
+
+/**
  * Best-effort read of whether the browser has pending input right now.
  * Returns `false` — never throws — when the API is unavailable or errors,
  * since the caller's fallback (a plain time budget) is always safe.
@@ -163,6 +178,27 @@ export function now(): number {
     // fall through
   }
   return Date.now();
+}
+
+/**
+ * A time slice of zero, a negative number or NaN is meaningless, so those
+ * fall back to the default rather than producing a task that yields after
+ * every item (or never).
+ */
+export function normalizeTimeSliceMs(value: number | undefined): number {
+  if (typeof value !== 'number' || Number.isNaN(value) || value <= 0) {
+    return DEFAULT_TIME_SLICE_MS;
+  }
+  return value;
+}
+
+/**
+ * Batch sizes are whole items, at least one. Anything else — a fraction,
+ * zero, a negative, NaN — falls back to 1, the safe default.
+ */
+export function normalizeBatchSize(value: number | undefined): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 1) return 1;
+  return Math.floor(value);
 }
 
 export interface ShouldYieldOptions {

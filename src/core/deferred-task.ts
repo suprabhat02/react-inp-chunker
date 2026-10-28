@@ -6,11 +6,13 @@ import {
   isTerminal,
   transition,
 } from './chunk-machine.js';
+import { createDiagnostics, isDevelopment } from './diagnostics.js';
 import {
-  DEFAULT_TIME_SLICE_MS,
   type YieldStrategy,
+  normalizeBatchSize,
+  normalizeTimeSliceMs,
   now,
-  shouldYieldNow,
+  resolveInputPending,
   yieldToMain,
 } from './scheduler.js';
 
@@ -41,6 +43,17 @@ export interface DeferredTaskOptions<T> {
   readonly task: () => DeferredGenerator<T>;
   /** Max ms of uninterrupted work before yielding. Default 5. */
   readonly timeSliceMs?: number;
+  /**
+   * Segments (the code between two `yield`s) to run between clock checks.
+   * Default 1, which bounds a slice at one segment.
+   *
+   * Reading the clock costs around 300ns in a browser, so a generator that
+   * yields after a few nanoseconds of work spends most of its time asking
+   * the time. Raising this amortizes that — at the cost of checking the
+   * clock, pause and cancel only at batch boundaries, so a slice can run up
+   * to `batchSize` segments past its budget.
+   */
+  readonly batchSize?: number;
   readonly signal?: AbortSignal;
   /** Testing-only: forces a specific yield strategy instead of auto-detecting one. */
   readonly yieldStrategy?: YieldStrategy;
@@ -52,9 +65,15 @@ export interface DeferredTaskResult<T> {
   readonly error?: unknown;
 }
 
-export interface DeferredTaskSnapshot {
+export interface DeferredTaskSnapshot<T = unknown> {
   readonly status: ChunkStatus;
   readonly error?: unknown;
+  /**
+   * Present only once the task has settled with `done`, and always in the
+   * same snapshot that first reports it — so a reader can never observe
+   * `status: 'done'` without the value that goes with it.
+   */
+  readonly value?: T;
 }
 
 export interface DeferredTask<T> {
@@ -62,18 +81,11 @@ export interface DeferredTask<T> {
   pause(): void;
   resume(): void;
   cancel(): void;
-  getSnapshot(): DeferredTaskSnapshot;
+  getSnapshot(): DeferredTaskSnapshot<T>;
   /** The returned value once the task has settled with `done` — `undefined` otherwise. */
   getValue(): T | undefined;
   subscribe(listener: () => void): () => void;
   readonly settled: Promise<DeferredTaskResult<T>>;
-}
-
-function normalizeTimeSliceMs(value: number | undefined): number {
-  if (typeof value !== 'number' || Number.isNaN(value) || value <= 0) {
-    return DEFAULT_TIME_SLICE_MS;
-  }
-  return value;
 }
 
 /**
@@ -86,19 +98,23 @@ function normalizeTimeSliceMs(value: number | undefined): number {
 export function createDeferredTask<T>(options: DeferredTaskOptions<T>): DeferredTask<T> {
   const { task, signal, yieldStrategy } = options;
   const timeSliceMs = normalizeTimeSliceMs(options.timeSliceMs);
+  const batchSize = normalizeBatchSize(options.batchSize);
+  // Resolved once per task rather than per segment; see chunk-scheduler.ts.
+  const inputPending = resolveInputPending();
+  const diagnostics = createDiagnostics('segment', batchSize);
 
   let machineState: ChunkMachineState = initialChunkState;
   let loopStarted = false;
   let settledFlag = false;
-  let value: T | undefined;
+  let settledValue: T | undefined;
 
-  // Cached, and only rebuilt on an actual transition (see refreshSnapshot())
-  // — not recomputed on every getSnapshot() call. useSyncExternalStore
-  // requires repeated calls between notifications to return the *same*
-  // reference; a fresh object literal on every call (as this used to be)
-  // reads as "changed every render" and sends React into an infinite
-  // re-render loop. Mirrors chunk-scheduler.ts's `snapshot` exactly.
-  let snapshot: DeferredTaskSnapshot = { status: machineState.status };
+  // Built on demand, and only when something has actually changed.
+  // useSyncExternalStore requires repeated calls between notifications to
+  // return the *same* reference; a fresh object literal on every call (as
+  // this used to be) reads as "changed every render" and sends React into
+  // an infinite re-render loop. Mirrors chunk-scheduler.ts exactly.
+  let snapshot: DeferredTaskSnapshot<T> = { status: machineState.status };
+  let snapshotStale = false;
 
   const listeners = new Set<() => void>();
 
@@ -127,11 +143,16 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
     for (const listener of listeners) listener();
   }
 
-  function refreshSnapshot(): void {
-    snapshot = {
-      status: machineState.status,
-      ...(machineState.error !== undefined ? { error: machineState.error } : {}),
-    };
+  function getSnapshot(): DeferredTaskSnapshot<T> {
+    if (snapshotStale) {
+      snapshotStale = false;
+      snapshot = {
+        status: machineState.status,
+        ...(machineState.error !== undefined ? { error: machineState.error } : {}),
+        ...(settledValue !== undefined ? { value: settledValue } : {}),
+      };
+    }
+    return snapshot;
   }
 
   function dispatch(event: ChunkEvent): { changed: boolean } {
@@ -139,7 +160,7 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
     const changed = next !== machineState;
     if (changed) {
       machineState = next;
-      refreshSnapshot();
+      snapshotStale = true;
       notify();
     }
     return { changed };
@@ -159,13 +180,21 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
     settleFn(result);
   }
 
-  function finish(
+  /**
+   * Publishes the returned value before the terminal status is announced,
+   * so the notification that reports `done` already carries it.
+   */
+  function publishValue(resolvedValue: T | undefined): void {
+    settledValue = resolvedValue;
+    snapshotStale = true;
+  }
+
+  function settleWith(
     status: 'done' | 'cancelled' | 'error',
     resolvedValue?: T,
     error?: unknown,
   ): void {
     if (status === 'done') {
-      value = resolvedValue;
       settle({
         status,
         ...(resolvedValue !== undefined ? { value: resolvedValue } : {}),
@@ -175,19 +204,24 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
     settle(status === 'error' ? { status, error } : { status });
   }
 
+  /**
+   * Settling as cancelled, for both places that can do it. The CANCEL
+   * transition was announced earlier, so this notifies again now that the
+   * task has actually settled.
+   */
+  function finishCancelled(): void {
+    settleWith('cancelled');
+    notify();
+  }
+
   function settleIfNeverStarted(): void {
-    const { status, error } = machineState;
+    const { status } = machineState;
     if (loopStarted || !isTerminal(status)) return;
     loopStarted = true;
-    // See the identical comment in chunk-scheduler.ts's settleIfNeverStarted():
-    // both 'done' and 'error' are unreachable here, since reaching either
-    // requires the loop to have run, which requires `loopStarted` already
-    // true — which would have short-circuited this function above. Only
-    // 'cancelled' is ever actually observed; 'error' is kept as the real,
-    // narrowed type rather than assumed away, as untestable defense-in-depth.
-    /* v8 ignore next */
-    if (status === 'error') finish('error', undefined, error);
-    else finish(status);
+    // 'cancelled' is the only status reachable here: 'done' and 'error'
+    // both require the loop to have run, and that sets `loopStarted`,
+    // which short-circuits this function above.
+    finishCancelled();
   }
 
   function handleAbort(): void {
@@ -206,6 +240,7 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
 
   async function runLoop(): Promise<void> {
     let sliceStartedAt = now();
+    let segment = 0;
     const generator = task();
 
     // `step` always holds the result of the *last* generator.next() call —
@@ -229,6 +264,7 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
         if (status === 'paused') {
           await waitForWake();
           sliceStartedAt = now();
+          if (isDevelopment) diagnostics.resumed(sliceStartedAt, segment);
           // Don't fall through to generator.next() just because the gate
           // opened — re-enter the loop and read machineState.status fresh.
           // A resume() can be undone by a *reentrant* pause() triggered
@@ -252,39 +288,57 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
         // before the next loop iteration finally noticed. Checking first,
         // every time, closes that race: nothing the generator does can run
         // once cancellation has been observed.
-        step = generator.next();
-        if (step.done) break;
+        // One batch of segments between clock checks. At the default
+        // batchSize of 1 this runs exactly one segment, then checks.
+        let done = false;
+        for (let inBatch = 0; inBatch < batchSize; inBatch++) {
+          step = generator.next();
+          segment += 1;
+          if (step.done) {
+            done = true;
+            break;
+          }
+        }
+        if (done) break;
 
-        if (shouldYieldNow({ sliceStartedAt, timeSliceMs })) {
+        // One clock read per batch, shared by the budget check and the
+        // development diagnostics, which compile away in production.
+        const checkedAt = now();
+        if (isDevelopment) diagnostics.check(checkedAt, segment);
+
+        if (checkedAt - sliceStartedAt >= timeSliceMs || inputPending()) {
+          if (isDevelopment) diagnostics.sliceEnded(checkedAt, segment);
           await yieldToMain(
             yieldStrategy !== undefined ? { strategy: yieldStrategy } : undefined,
           );
           notify();
           sliceStartedAt = now();
+          if (isDevelopment) diagnostics.resumed(sliceStartedAt, segment);
         }
       }
     } catch (error) {
       dispatch({ type: 'ERROR', error });
-      finish('error', undefined, error);
+      settleWith('error', undefined, error);
       return;
     }
 
     if (machineState.status === 'cancelled') {
-      finish('cancelled');
+      finishCancelled();
       return;
     }
 
-    dispatch({ type: 'COMPLETE' });
     // step.done is always true by the time we get here: the only ways out
     // of the loop above are the top-of-loop 'cancelled' break (handled by
-    // the early return just above, before this line) and `if (step.done)
-    // break;` — so the ": undefined" side of this ternary can't actually
-    // run. It stays only because it's what makes TypeScript narrow
-    // step.value's type correctly (see the top of this function's history
-    // for the exact inference issue); the real type is kept rather than
-    // cast away.
+    // the early return just above, before this line) and the batch loop's
+    // own `done` break — so the ": undefined" side of this ternary can't
+    // actually run. It stays only because it's what makes TypeScript
+    // narrow step.value's type correctly; the real type is kept rather
+    // than cast away.
     /* v8 ignore next */
-    finish('done', step.done ? step.value : undefined);
+    const returned = step.done ? step.value : undefined;
+    publishValue(returned);
+    dispatch({ type: 'COMPLETE' });
+    settleWith('done', returned);
   }
 
   function start(): void {
@@ -316,8 +370,8 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
     pause,
     resume,
     cancel,
-    getSnapshot: () => snapshot,
-    getValue: () => value,
+    getSnapshot,
+    getValue: () => settledValue,
     subscribe(listener) {
       listeners.add(listener);
       return () => {

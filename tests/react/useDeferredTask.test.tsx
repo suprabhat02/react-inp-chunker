@@ -211,3 +211,44 @@ describe('useDeferredTask() — unmount', () => {
     expect(progress.length).toBe(countAtUnmount);
   });
 });
+
+describe('useDeferredTask() — batchSize', () => {
+  it('passes batchSize through and still runs every segment', async () => {
+    const segments: number[] = [];
+    function* work(): DeferredGenerator<number> {
+      for (let i = 0; i < 20; i++) {
+        segments.push(i);
+        yield;
+      }
+      return 20;
+    }
+
+    const { result } = renderHook(() => useDeferredTask(work, [], { batchSize: 8 }));
+
+    await waitFor(() => {
+      expect(result.current.isDone).toBe(true);
+    });
+    expect(segments).toHaveLength(20);
+    expect(result.current.value).toBe(20);
+  });
+
+  it('exposes the value through the same snapshot that reports isDone', async () => {
+    const seenWhileDone: (number | undefined)[] = [];
+    function* work(): DeferredGenerator<number> {
+      yield;
+      return 42;
+    }
+
+    const { result } = renderHook(() => {
+      const state = useDeferredTask(work, []);
+      if (state.isDone) seenWhileDone.push(state.value);
+      return state;
+    });
+
+    await waitFor(() => {
+      expect(result.current.isDone).toBe(true);
+    });
+    expect(seenWhileDone.length).toBeGreaterThan(0);
+    expect(seenWhileDone.every((value) => value === 42)).toBe(true);
+  });
+});

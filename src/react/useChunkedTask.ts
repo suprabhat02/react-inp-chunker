@@ -9,6 +9,19 @@ import { useEffectEvent } from './use-effect-event.js';
 export interface UseChunkedTaskOptions<T, R> {
   /** Max ms of uninterrupted work before yielding. Default 5. */
   readonly timeSliceMs?: number;
+  /**
+   * Items to process between clock checks. Default 1. Raise it only for
+   * items measured in nanoseconds, where reading the clock costs more than
+   * the work; a slice can then run up to `batchSize` items past its budget.
+   * See the `batchSize` note on `createChunkScheduler`.
+   */
+  readonly batchSize?: number;
+  /**
+   * Keep every result in `results`. Default true. Set false when results
+   * are consumed through `onItem`, to avoid retaining one result per item;
+   * `results` is then an empty array once the task settles.
+   */
+  readonly collectResults?: boolean;
   /** Start processing automatically when the task is (re)created. Default `true`. */
   readonly autoStart?: boolean;
   /**
@@ -61,7 +74,13 @@ export function useChunkedTask<T, R>(
   processItem: (item: T, index: number) => R,
   options?: UseChunkedTaskOptions<T, R>,
 ): UseChunkedTaskState<R> {
-  const { timeSliceMs, autoStart = true, onItem } = options ?? {};
+  const {
+    timeSliceMs,
+    batchSize,
+    collectResults,
+    autoStart = true,
+    onItem,
+  } = options ?? {};
 
   // Stable identity, always runs the latest processItem/onItem passed this
   // render — the React-Compiler-safe replacement for a ref mutated during
@@ -83,7 +102,7 @@ export function useChunkedTask<T, R>(
 
   // What getSnapshot() reports before the effect below has ever run —
   // including during SSR, where effects never run at all.
-  const idleSnapshot = useMemo<ChunkSnapshot>(
+  const idleSnapshot = useMemo<ChunkSnapshot<R>>(
     () => ({ status: IDLE_STATUS, processed: 0, total: items.length }),
     [items.length],
   );
@@ -100,6 +119,8 @@ export function useChunkedTask<T, R>(
       processItem: stableProcessItem,
       onItem: stableOnItem,
       ...(timeSliceMs !== undefined ? { timeSliceMs } : {}),
+      ...(batchSize !== undefined ? { batchSize } : {}),
+      ...(collectResults !== undefined ? { collectResults } : {}),
     });
     controller.replace(scheduler);
     if (autoStart) scheduler.start();
@@ -114,26 +135,23 @@ export function useChunkedTask<T, R>(
     // construction, intentionally excluded from the reactive dependency set
     // (that's the whole point of useEffectEvent) rather than omitted by
     // oversight.
-  }, [items, timeSliceMs, autoStart, controller]);
+  }, [items, timeSliceMs, batchSize, collectResults, autoStart, controller]);
 
   const start = useCallback(() => controller.getCurrent()?.start(), [controller]);
   const pause = useCallback(() => controller.getCurrent()?.pause(), [controller]);
   const resume = useCallback(() => controller.getCurrent()?.resume(), [controller]);
   const cancel = useCallback(() => controller.getCurrent()?.cancel(), [controller]);
 
-  // Safe to read outside useSyncExternalStore's own getSnapshot: a
-  // scheduler only ever finishes synchronously (dispatch-then-finish, no
-  // await between them — see chunk-scheduler.ts), so by the time React
-  // re-renders in response to the status-change notification, getResults()
-  // already agrees with that status. They can never be observed out of sync.
-  const results = controller.getCurrent()?.getResults();
-
   return {
     status: snapshot.status,
     processed: snapshot.processed,
     total: snapshot.total,
     error: snapshot.error,
-    results,
+    // From the snapshot, not a direct read of the scheduler: the engine
+    // publishes results before it announces a terminal status, so the two
+    // always arrive together and a concurrent render can never tear them
+    // apart.
+    results: snapshot.results,
     isIdle: snapshot.status === 'idle',
     isProcessing: snapshot.status === 'processing',
     isPaused: snapshot.status === 'paused',

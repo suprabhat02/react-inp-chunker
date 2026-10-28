@@ -6,11 +6,13 @@ import {
   isTerminal,
   transition,
 } from './chunk-machine.js';
+import { createDiagnostics, isDevelopment } from './diagnostics.js';
 import {
-  DEFAULT_TIME_SLICE_MS,
   type YieldStrategy,
+  normalizeBatchSize,
+  normalizeTimeSliceMs,
   now,
-  shouldYieldNow,
+  resolveInputPending,
   yieldToMain,
 } from './scheduler.js';
 
@@ -19,6 +21,28 @@ export interface ChunkSchedulerOptions<T, R> {
   readonly processItem: (item: T, index: number) => R;
   /** Max ms of uninterrupted work before yielding. Default 5. */
   readonly timeSliceMs?: number;
+  /**
+   * Items to process between clock checks. Default 1, which bounds a slice
+   * at one item: the safe choice, and the right one unless profiling says
+   * otherwise.
+   *
+   * Reading the clock costs around 300ns in a browser (where it is also
+   * coarsened to 0.1ms), so for items measured in nanoseconds that read,
+   * not the work, dominates. Raising this amortizes it — at the cost of
+   * checking the clock, pause and cancel only at batch boundaries, so a
+   * slice can run up to `batchSize` items past its budget. Pick a value
+   * whose worst-case cost you know: `batchSize * your slowest item` is the
+   * overshoot you are accepting.
+   */
+  readonly batchSize?: number;
+  /**
+   * Keep every result for `getResults()`. Default true. Set false when
+   * results are consumed through `onItem`: the array is then never built,
+   * which matters when `items` is large enough for retaining one result
+   * per item to cost real memory. `getResults()` then returns an empty
+   * array once the task settles.
+   */
+  readonly collectResults?: boolean;
   /** Called after each item is successfully processed. */
   readonly onItem?: (result: R, item: T, index: number) => void;
   /** External cancellation source — aborting it is equivalent to calling cancel(). */
@@ -33,11 +57,17 @@ export interface ChunkSchedulerResult<R> {
   readonly error?: unknown;
 }
 
-export interface ChunkSnapshot {
+export interface ChunkSnapshot<R = unknown> {
   readonly status: ChunkStatus;
   readonly processed: number;
   readonly total: number;
   readonly error?: unknown;
+  /**
+   * Present only once the task has settled, and always in the same
+   * snapshot that first reports a terminal status — so a reader can never
+   * observe `status: 'done'` without the results that go with it.
+   */
+  readonly results?: readonly R[];
 }
 
 export interface ChunkScheduler<R> {
@@ -45,7 +75,7 @@ export interface ChunkScheduler<R> {
   pause(): void;
   resume(): void;
   cancel(): void;
-  getSnapshot(): ChunkSnapshot;
+  getSnapshot(): ChunkSnapshot<R>;
   /**
    * The accumulated results, but only once the task has reached a terminal
    * state — `undefined` while idle/processing/paused. Computed once, cheaply,
@@ -60,11 +90,17 @@ export interface ChunkScheduler<R> {
   readonly settled: Promise<ChunkSchedulerResult<R>>;
 }
 
-function normalizeTimeSliceMs(value: number | undefined): number {
-  if (typeof value !== 'number' || Number.isNaN(value) || value <= 0) {
-    return DEFAULT_TIME_SLICE_MS;
-  }
-  return value;
+/**
+ * `items[index]` for an index the caller has already bounds-checked.
+ *
+ * The loop below only ever indexes below `items.length`, but
+ * `noUncheckedIndexedAccess` widens every index read to `T | undefined`,
+ * and `T` may itself include `undefined` — so no runtime check can narrow
+ * it. This states the invariant in one place instead of asserting at each
+ * use, and compiles to a plain index read.
+ */
+function at<T>(items: readonly T[], index: number): T {
+  return items[index] as T;
 }
 
 /**
@@ -84,7 +120,15 @@ export function createChunkScheduler<T, R>(
 ): ChunkScheduler<R> {
   const { items, processItem, onItem, signal, yieldStrategy } = options;
   const timeSliceMs = normalizeTimeSliceMs(options.timeSliceMs);
+  const batchSize = normalizeBatchSize(options.batchSize);
+  const collectResults = options.collectResults ?? true;
   const total = items.length;
+
+  // Resolved once per scheduler, not per item: the feature detection behind
+  // it walks `navigator.scheduling.isInputPending` through optional calls,
+  // which is wasted work on every item of a million-item task.
+  const inputPending = resolveInputPending();
+  const diagnostics = createDiagnostics('item', batchSize);
 
   let machineState: ChunkMachineState = initialChunkState;
   let processed = 0;
@@ -93,7 +137,14 @@ export function createChunkScheduler<T, R>(
   const results: R[] = [];
   let finalResults: readonly R[] | undefined;
 
-  let snapshot: ChunkSnapshot = { status: machineState.status, processed, total };
+  // Built on demand rather than after every item. useSyncExternalStore
+  // requires repeated calls between notifications to return the *same*
+  // reference, which `snapshot` holds until something actually changes;
+  // `snapshotStale` is what marks it as needing a rebuild. Allocating a
+  // fresh snapshot per item (as this once did) is pure garbage for a task
+  // that only publishes progress at slice boundaries.
+  let snapshot: ChunkSnapshot<R> = { status: machineState.status, processed, total };
+  let snapshotStale = false;
   const listeners = new Set<() => void>();
 
   let settleFn!: (result: ChunkSchedulerResult<R>) => void;
@@ -123,13 +174,18 @@ export function createChunkScheduler<T, R>(
     for (const listener of listeners) listener();
   }
 
-  function refreshSnapshot(): void {
-    snapshot = {
-      status: machineState.status,
-      processed,
-      total,
-      ...(machineState.error !== undefined ? { error: machineState.error } : {}),
-    };
+  function getSnapshot(): ChunkSnapshot<R> {
+    if (snapshotStale) {
+      snapshotStale = false;
+      snapshot = {
+        status: machineState.status,
+        processed,
+        total,
+        ...(machineState.error !== undefined ? { error: machineState.error } : {}),
+        ...(finalResults !== undefined ? { results: finalResults } : {}),
+      };
+    }
+    return snapshot;
   }
 
   function dispatch(event: ChunkEvent): { changed: boolean } {
@@ -137,7 +193,7 @@ export function createChunkScheduler<T, R>(
     const changed = next !== machineState;
     if (changed) {
       machineState = next;
-      refreshSnapshot();
+      snapshotStale = true;
       notify();
     }
     return { changed };
@@ -161,19 +217,39 @@ export function createChunkScheduler<T, R>(
   }
 
   /**
-   * The single path every terminal transition goes through: snapshots the
-   * results array exactly once (not per item), publishes it via
-   * getResults(), and settles the public promise with the same reference —
-   * no redundant second copy.
+   * Publishes the accumulated results exactly once, at the moment the task
+   * settles — not per item, and never as a second copy. Always called
+   * *before* the terminal status is announced, so the notification that
+   * reports `done` already carries the results: a subscriber can never
+   * observe one without the other.
    */
-  function finish(status: 'done' | 'cancelled' | 'error', error?: unknown): void {
-    const resultsCopy = [...results];
-    finalResults = resultsCopy;
+  function publishResults(): readonly R[] {
+    finalResults = results;
+    snapshotStale = true;
+    return finalResults;
+  }
+
+  function settleWith(
+    status: 'done' | 'cancelled' | 'error',
+    published: readonly R[],
+    error?: unknown,
+  ): void {
     settle(
       status === 'error'
-        ? { status, error, results: resultsCopy }
-        : { status, results: resultsCopy },
+        ? { status, error, results: published }
+        : { status, results: published },
     );
+  }
+
+  /**
+   * Settling as cancelled, for both places that can do it: the loop
+   * noticing, and cancel() on a task whose loop never ran. The CANCEL
+   * transition was announced earlier, before there were any results to
+   * carry, so this notifies again now that there are.
+   */
+  function finishCancelled(): void {
+    settleWith('cancelled', publishResults());
+    notify();
   }
 
   // If the machine reached a terminal state without the processing loop
@@ -182,19 +258,13 @@ export function createChunkScheduler<T, R>(
   // does it. Guarded by !loopStarted, which this also sets, so it can never
   // race with (or double-finish against) the loop's own completion path.
   function settleIfNeverStarted(): void {
-    const { status, error } = machineState;
+    const { status } = machineState;
     if (loopStarted || !isTerminal(status)) return;
     loopStarted = true;
-    // Both 'done' and 'error' are unreachable here without the loop
-    // having run — and the loop having run means `loopStarted` was
-    // already true, which would have short-circuited this function above
-    // — so 'cancelled' is the only status this ever actually sees. Kept
-    // as the real (narrowed) type rather than assumed away, in case that
-    // invariant ever changes; the 'error' branch specifically is untestable
-    // defense-in-depth for the same structural reason.
-    /* v8 ignore next */
-    if (status === 'error') finish('error', error);
-    else finish(status);
+    // 'cancelled' is the only status reachable here: 'done' and 'error'
+    // both require the loop to have run, and that sets `loopStarted`,
+    // which short-circuits this function above.
+    finishCancelled();
   }
 
   function handleAbort(): void {
@@ -213,56 +283,71 @@ export function createChunkScheduler<T, R>(
 
   async function runLoop(): Promise<void> {
     let sliceStartedAt = now();
+    let index = 0;
 
-    itemLoop: for (const [index, item] of items.entries()) {
-      // Keep re-checking status for *this same* item until it's neither
-      // paused nor cancelled, instead of trusting a single wake-from-pause
-      // to mean "clear to proceed". A resume() can be undone by a
-      // *reentrant* pause() triggered synchronously from a subscriber's
-      // own notification (resume() dispatches, notify() runs listeners
-      // synchronously, a listener calls pause() before resume() returns)
-      // — so without this, the first item after such a resume() would
-      // run anyway, even though the task is genuinely paused again by
-      // the time it does. A plain `continue` on the outer for-of would
-      // wrongly advance to the next item instead of re-checking this one,
-      // which is why this is its own inner loop with a labeled break for
-      // the one case (cancelled) that must stop processing entirely.
-      for (;;) {
+    try {
+      while (index < total) {
+        // Re-read on every pass rather than trusting a single wake from the
+        // pause gate: a resume() can be undone by a *reentrant* pause()
+        // triggered synchronously from a subscriber's own notification
+        // (resume() dispatches, notify() runs listeners synchronously, a
+        // listener calls pause() before resume() returns). Continuing the
+        // loop instead of falling through is what lets this see that and
+        // block again on a fresh gate, without consuming an item.
         const status: ChunkStatus = machineState.status;
-        if (status === 'cancelled') break itemLoop;
-        if (status !== 'paused') break;
-        await waitForWake();
-        sliceStartedAt = now();
-      }
+        if (status === 'cancelled') break;
+        if (status === 'paused') {
+          await waitForWake();
+          sliceStartedAt = now();
+          if (isDevelopment) diagnostics.resumed(sliceStartedAt, index);
+          continue;
+        }
 
-      try {
-        const result = processItem(item, index);
-        results.push(result);
-        processed = index + 1;
-        refreshSnapshot();
-        onItem?.(result, item, index);
-      } catch (error) {
-        dispatch({ type: 'ERROR', error });
-        finish('error', error);
-        return;
-      }
+        // One batch between clock checks. At the default batchSize of 1
+        // this is exactly "one item, then check", and the inner loop costs
+        // nothing beyond the comparison.
+        const batchEnd = index + batchSize <= total ? index + batchSize : total;
+        while (index < batchEnd) {
+          const item = at(items, index);
+          const result = processItem(item, index);
+          if (collectResults) results.push(result);
+          processed = index + 1;
+          onItem?.(result, item, index);
+          index += 1;
+        }
+        snapshotStale = true;
 
-      if (shouldYieldNow({ sliceStartedAt, timeSliceMs })) {
-        await yieldToMain(
-          yieldStrategy !== undefined ? { strategy: yieldStrategy } : undefined,
-        );
-        notify(); // surface the progress made during this slice
-        sliceStartedAt = now();
-      }
-    }
+        // One clock read per batch, shared by the budget check and the
+        // development diagnostics. Both diagnostic calls compile away in a
+        // production build, along with this module.
+        const checkedAt = now();
+        if (isDevelopment) diagnostics.check(checkedAt, index);
 
-    if (machineState.status === 'cancelled') {
-      finish('cancelled');
+        if (checkedAt - sliceStartedAt >= timeSliceMs || inputPending()) {
+          if (isDevelopment) diagnostics.sliceEnded(checkedAt, index);
+          await yieldToMain(
+            yieldStrategy !== undefined ? { strategy: yieldStrategy } : undefined,
+          );
+          notify(); // surface the progress made during this slice
+          sliceStartedAt = now();
+          if (isDevelopment) diagnostics.resumed(sliceStartedAt, index);
+        }
+      }
+    } catch (error) {
+      const published = publishResults();
+      dispatch({ type: 'ERROR', error });
+      settleWith('error', published, error);
       return;
     }
 
+    if (machineState.status === 'cancelled') {
+      finishCancelled();
+      return;
+    }
+
+    const published = publishResults();
     dispatch({ type: 'COMPLETE' });
-    finish('done');
+    settleWith('done', published);
   }
 
   function start(): void {
@@ -294,7 +379,7 @@ export function createChunkScheduler<T, R>(
     pause,
     resume,
     cancel,
-    getSnapshot: () => snapshot,
+    getSnapshot,
     getResults: () => finalResults,
     subscribe(listener) {
       listeners.add(listener);

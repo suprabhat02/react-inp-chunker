@@ -31,11 +31,19 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "production": {
+        "import": "./dist/production/index.js",
+        "require": "./dist/production/index.cjs"
+      },
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
     "./core": {
       "types": "./dist/core/index.d.ts",
+      "production": {
+        "import": "./dist/production/core/index.js",
+        "require": "./dist/production/core/index.cjs"
+      },
       "import": "./dist/core/index.js",
       "require": "./dist/core/index.cjs"
     },
@@ -65,10 +73,12 @@
     "test:coverage": "vitest run --coverage",
     "size": "size-limit",
     "verify": "npm run lint && npm run format:check && npm run typecheck && npm run test:coverage && npm run build && npm run size",
-    "prepublishOnly": "npm run verify"
+    "prepublishOnly": "npm run verify",
+    "bench": "npm run build && node bench/overhead.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@size-limit/preset-small-lib": "14.3.0",
     "@testing-library/react": "16.3.3",
     "@types/node": "24.1.0",
     "@types/react": "19.3.0",
@@ -82,7 +92,6 @@
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "size-limit": "14.3.0",
-    "@size-limit/preset-small-lib": "14.3.0",
     "tsdown": "0.23.2",
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.0",
@@ -91,25 +100,25 @@
   "size-limit": [
     {
       "name": "core (import { createChunkScheduler })",
-      "path": "dist/core/index.js",
+      "path": "dist/production/core/index.js",
       "import": "{ createChunkScheduler }",
-      "limit": "1.3 kB"
+      "limit": "1.4 kB"
     },
     {
       "name": "useChunkedTask",
-      "path": "dist/index.js",
+      "path": "dist/production/index.js",
       "import": "{ useChunkedTask }",
       "limit": "2.2 kB"
     },
     {
       "name": "useDeferredTask",
-      "path": "dist/index.js",
+      "path": "dist/production/index.js",
       "import": "{ useDeferredTask }",
-      "limit": "1.7 kB"
+      "limit": "1.8 kB"
     },
     {
       "name": "everything",
-      "path": "dist/index.js",
+      "path": "dist/production/index.js",
       "limit": "3.5 kB"
     }
   ]
