@@ -1,0 +1,45 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A reproduction is worth more than a description. A CodeSandbox or a
+        small repository gets a fix far faster than prose does.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: And what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: A link, or the smallest piece of code that shows it.
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: react-inp-chunker, React, and your bundler or framework.
+      placeholder: react-inp-chunker 0.2.0, React 19.3.1, Vite 8
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser or Node version
+      placeholder: Chrome 141, or Node 22.12
+    validations:
+      required: true
+  - type: textarea
+    id: warnings
+    attributes:
+      label: Development warnings
+      description: >
+        Anything the library logged starting with [react-inp-chunker]. These
+        usually name the problem directly.

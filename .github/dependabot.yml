@@ -1,5 +1,8 @@
 version: 2
 updates:
+  # Dependabot opens these as pull requests from a bot account. They are not
+  # merged: the maintainer applies the ones worth taking as their own
+  # commits, so the contributor list stays people-only (see CONTRIBUTING.md).
   - package-ecosystem: npm
     directory: /
     schedule:
@@ -9,6 +12,33 @@ updates:
         dependency-type: development
         update-types: [minor, patch]
 
+  # The documentation site has its own lockfile and its own dependencies.
+  - package-ecosystem: npm
+    directory: /docs
+    schedule:
+      interval: weekly
+    groups:
+      docs:
+        patterns: ['*']
+        update-types: [minor, patch]
+
+  # The pinned compatibility toolchains: a security fix in one of these
+  # still matters, even though they only ever run in CI.
+  - package-ecosystem: npm
+    directory: /compat/react18
+    schedule:
+      interval: monthly
+  - package-ecosystem: npm
+    directory: /compat/typescript5
+    schedule:
+      interval: monthly
+  - package-ecosystem: npm
+    directory: /compat/typescript7
+    schedule:
+      interval: monthly
+
+  # Actions are pinned to commit SHAs; Dependabot updates the SHA and the
+  # version comment together.
   - package-ecosystem: github-actions
     directory: /
     schedule:

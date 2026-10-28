@@ -1,0 +1,30 @@
+name: Feature request
+description: Suggest something this package should do
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This package has one job: run heavy synchronous work without
+        blocking the main thread. Proposals that widen that job are usually
+        declined, so the problem you are solving matters more than the API
+        you have in mind.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what makes it awkward today?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you tried
+      description: >
+        Including whether a Web Worker, startTransition, or virtualization
+        would fit better — see the "When to use it" section of the docs.
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you have in mind
+      description: An API sketch, if you have one.
