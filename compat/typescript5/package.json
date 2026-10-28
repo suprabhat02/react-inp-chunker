@@ -3,6 +3,6 @@
   "private": true,
   "description": "The oldest TypeScript this package supports. Consumers compile the published declarations with whatever version they are on, so CI checks the floor as well as the ceiling. Installed with npm ci from its own lockfile.",
   "devDependencies": {
-    "typescript": "5.0.4"
+    "typescript": "7.0.2"
   }
 }
