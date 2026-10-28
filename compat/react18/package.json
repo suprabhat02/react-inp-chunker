@@ -3,9 +3,9 @@
   "private": true,
   "description": "React 18 for the compatibility checks: the test suite runs against it (REACT_VERSION=18), and the packed package is smoke-tested against it as a real consumer would install it. Installed with npm ci from its own lockfile, so CI never installs unpinned versions.",
   "devDependencies": {
-    "@types/react": "18.3.31",
+    "@types/react": "19.3.0",
     "@types/react-dom": "18.3.7",
-    "react": "18.3.1",
+    "react": "19.3.1",
     "react-dom": "18.3.1"
   }
 }
