@@ -15,3 +15,9 @@ export function formatMs(ms: number): string {
 export function formatCount(value: number): string {
   return integer.format(value);
 }
+
+/** "213 ns", "59 ns", "3 ns": overhead measurements, always in nanoseconds. */
+export function formatNs(ns: number): string {
+  if (!Number.isFinite(ns)) return '—';
+  return `${integer.format(Math.max(0, ns))} ns`;
+}

@@ -15,6 +15,7 @@ import {
   SLICE_MAX,
   SLICE_MIN,
 } from './constants.ts';
+import { OverheadTuner } from './OverheadTuner.tsx';
 import { Probe } from './Probe.tsx';
 import {
   type RunMode,
@@ -448,6 +449,8 @@ export function Playground() {
           />
         </div>
       </section>
+
+      <OverheadTuner />
     </div>
   );
 }
