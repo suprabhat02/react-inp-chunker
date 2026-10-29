@@ -26,7 +26,14 @@ function publishedFiles() {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'ignore'],
   });
-  const [report] = JSON.parse(output);
+  const parsed = JSON.parse(output);
+  // npm <11 printed an array (`[{...}]`); npm 11+ prints an object keyed by
+  // package name (`{"react-inp-chunker": {...}}`) for the same `--json`
+  // flag. Reading whichever shape comes back keeps this working across the
+  // npm major this repo's own toolchain uses (npm ci) and the newer one CI
+  // installs just for publish (`npm install -g npm@latest`, for Trusted
+  // Publishing) — the two have disagreed on this before and may again.
+  const report = Array.isArray(parsed) ? parsed[0] : Object.values(parsed)[0];
   return report.files.map((file) => file.path);
 }
 
