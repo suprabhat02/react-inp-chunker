@@ -52,6 +52,14 @@ new options are left unset.
   kB, `useDeferredTask` 1.72 kB → 1.81 kB (both minified, brotli-compressed).
   `useChunkedTask` and the combined bundle still fit their existing budgets.
 
+### Fixed
+
+- A transitive `minimatch` dependency (pulled in by `eslint`/`typescript-eslint`,
+  neither of which has moved past the vulnerable range upstream yet) carried a
+  known moderate-severity advisory (GHSA-g3hv-75wg-m249). Forced to a patched
+  version via `npm overrides`; this package has no runtime dependencies of its
+  own either way, so nothing published to npm was ever affected.
+
 ## 0.2.0 — 2026-10-28
 
 Performance, packaging and proof. The engine does the same work for less than
