@@ -154,5 +154,8 @@
       "path": "dist/production/index.js",
       "limit": "3.5 kB"
     }
-  ]
+  ],
+  "overrides": {
+    "minimatch": "^11.0.1"
+  }
 }
