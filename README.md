@@ -91,6 +91,28 @@ Two options exist for work at the extremes, and most code needs neither:
 | `batchSize: number`       | `1`     | An item takes nanoseconds, so reading the clock costs more than the work. A slice may then overrun its budget by up to `batchSize` items — that is the whole trade. |
 | `collectResults: boolean` | `true`  | You already take results through `onItem` and don't want a million-entry array retained. `results` settles as an empty array.                                       |
 
+Three more exist for running this against data you don't fully trust, or in production:
+
+| Option    | Use it when                                                                                                                                                                                                                  |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `onError` | `processItem` can throw on a bad row. Return `'skip'` to drop that item and keep going (it shows up in `skipped`), or `'abort'` to end the task as an error — the default when you omit this entirely.                       |
+| `onSlice` | You want to verify, on your own real traffic, that this task is actually staying under `timeSliceMs`. Called with `(durationMs, processed)` at every yield — and unlike the dev-only warnings below, it ships in production. |
+| `onYield` | Pairs with `onSlice`: called right after each yield resolves and work is about to resume.                                                                                                                                    |
+
+```ts
+const task = useChunkedTask(rows, importRow, {
+  onError: (error, row, index) => {
+    reportToSentry(error, { row, index });
+    return 'skip'; // one bad row doesn't sink a 100,000-row import
+  },
+});
+```
+
+In development, the library also watches for two mistakes that otherwise fail
+silently: `processItem` returning a `Promise` (it's called synchronously and
+never awaited), and `collectResults: false` with no `onItem` to catch what it
+discards. These and the two warnings below are compiled out of production builds.
+
 In development, the library measures itself and says so: a single item that
 blocks for over 50 ms gets a warning naming its index, and work cheap enough that
 the clock dominates gets a concrete `batchSize` suggestion. Both are compiled out
@@ -134,7 +156,9 @@ const { status, results } = await scheduler.settled;
 Both engines expose `start()`, `pause()`, `resume()`, `cancel()`, a
 `subscribe()`/`getSnapshot()` pair, and a `settled` promise that always resolves
 (never rejects) with `'done' | 'cancelled' | 'error'`. An `AbortSignal` can drive
-cancellation too.
+cancellation too — its `reason` comes through on the result (`result.reason`),
+so a cancellation caused by a signal is distinguishable from a direct
+`cancel()` call.
 
 The [documentation](https://suprabhat02.github.io/react-inp-chunker/#api) has the
 full API, when to reach for something else (a Web Worker, `startTransition`,
@@ -156,8 +180,8 @@ Dropping any of these is a breaking change; [SUPPORT.md](SUPPORT.md) has the
 versioning rules.
 
 **Size**, minified and brotli-compressed, with no dependencies of its own:
-`useChunkedTask` 1.83 kB, `useDeferredTask` 1.72 kB, `createChunkScheduler`
-without React 1.34 kB, everything together 2.35 kB. CI fails if a change pushes
+`useChunkedTask` 2.02 kB, `useDeferredTask` 1.81 kB, `createChunkScheduler`
+without React 1.47 kB, everything together 2.59 kB. CI fails if a change pushes
 any of them over budget.
 
 Bundlers that set the `production` export condition — webpack, Vite, Rspack,

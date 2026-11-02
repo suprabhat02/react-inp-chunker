@@ -11,6 +11,7 @@ export type {
   ChunkSchedulerOptions,
   ChunkSchedulerResult,
   ChunkSnapshot,
+  SkippedChunkItem,
 } from './chunk-scheduler.js';
 export { createChunkScheduler } from './chunk-scheduler.js';
 

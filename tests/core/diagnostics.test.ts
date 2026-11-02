@@ -226,6 +226,7 @@ describe('development diagnostics', () => {
     diagnostics.resumed(0, 0);
     diagnostics.check(5000, 1);
     diagnostics.sliceEnded(5, 100_000);
+    twin.warnDev();
 
     expect(warn).not.toHaveBeenCalled();
   });

@@ -16,5 +16,6 @@ export type {
   DeferredTaskOptions,
   DeferredTaskResult,
   DeferredTaskSnapshot,
+  SkippedChunkItem,
   YieldStrategy,
 } from './core/index.js';

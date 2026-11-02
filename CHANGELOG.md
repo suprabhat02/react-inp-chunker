@@ -4,6 +4,54 @@ All notable changes to this package are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); this package
 follows [Semantic Versioning](https://semver.org/).
 
+## 0.3.0 — 2026-11-02
+
+Hardening, not new surface: closes the gaps a team running this on real,
+semi-trusted data would hit first. No change to existing behavior when the
+new options are left unset.
+
+### Added
+
+- **`onError`** on `useChunkedTask` and `createChunkScheduler`. Until now, one
+  `processItem` throw ended the whole task — the right default, but no escape
+  hatch for a caller chunking data they don't fully control (a CSV import, API
+  responses) where one bad row shouldn't sink the other 99,999. Return
+  `'skip'` to drop that item and keep going (it's recorded in the new
+  `skipped` array, both live on the snapshot and on the settled result) or
+  `'abort'` to end the task exactly as before — the default when `onError` is
+  omitted, so nothing changes for existing callers. Not added to
+  `useDeferredTask`/`createDeferredTask`: skipping one step of a stateful
+  generator mid-flight has no well-defined meaning the way skipping an
+  independent array item does.
+- **`onSlice`/`onYield`** on both hooks and both core engines. The
+  development-only diagnostics added in 0.1.x can tell you, while you're
+  building, that a task is misconfigured — but they're compiled out of
+  production, so a team running this in production had no way to confirm, on
+  their own real traffic, that it's actually staying under `timeSliceMs`.
+  These ship in the production build: `onSlice(durationMs, processed)` fires
+  every time a slice ends, `onYield()` right after work resumes. Wire them to
+  your own telemetry instead of trusting this package's own benchmark
+  numbers.
+- **`AbortSignal.reason` passthrough.** Cancelling via an aborted signal now
+  carries that signal's `reason` through to `result.reason` and
+  `getSnapshot().reason`, on both engines — so a cancellation caused by a
+  shared `AbortController` is distinguishable from a direct `cancel()` call
+  (which still reports no `reason`). Previously the reason was silently
+  dropped.
+- **Two development-only misuse warnings**, compiled out of production
+  builds like the existing ones: `processItem` returning a `Promise` (the
+  engine calls it synchronously and never awaits it, so `results` would
+  otherwise silently contain unresolved promises instead of their resolved
+  values), and `collectResults: false` with no `onItem` passed (every result
+  computed and discarded, with nothing to retrieve — almost always a mistake,
+  not a choice).
+
+### Changed
+
+- Size budgets adjusted for the above: `createChunkScheduler` 1.34 kB → 1.47
+  kB, `useDeferredTask` 1.72 kB → 1.81 kB (both minified, brotli-compressed).
+  `useChunkedTask` and the combined bundle still fit their existing budgets.
+
 ## 0.2.0 — 2026-10-28
 
 Performance, packaging and proof. The engine does the same work for less than

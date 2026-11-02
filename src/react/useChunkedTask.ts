@@ -2,9 +2,16 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 
 import type { ChunkStatus } from '../core/chunk-machine.js';
 import { createChunkScheduler } from '../core/chunk-scheduler.js';
-import type { ChunkScheduler, ChunkSnapshot } from '../core/chunk-scheduler.js';
+import type {
+  ChunkScheduler,
+  ChunkSnapshot,
+  SkippedChunkItem,
+} from '../core/chunk-scheduler.js';
 import { createTaskController } from './task-controller.js';
 import { useEffectEvent } from './use-effect-event.js';
+
+/** Stable empty array so a never-skipped task doesn't hand out a fresh `[]` every render. */
+const NO_SKIPPED: readonly SkippedChunkItem[] = [];
 
 export interface UseChunkedTaskOptions<T, R> {
   /** Max ms of uninterrupted work before yielding. Default 5. */
@@ -31,6 +38,23 @@ export interface UseChunkedTaskOptions<T, R> {
    * without paying for an array copy on every yield checkpoint.
    */
   readonly onItem?: (result: R, item: T, index: number) => void;
+  /**
+   * Called when `processItem` throws. Return `'skip'` to drop that item and
+   * keep going — it shows up in `skipped` — or `'abort'` to end the task as
+   * an error, carrying whatever was collected before the throw. Omitting
+   * this defaults to `'abort'`, so existing callers see no behavior change.
+   */
+  readonly onError?: (error: unknown, item: T, index: number) => 'skip' | 'abort';
+  /**
+   * Called every time a slice ends and the task is about to yield, with how
+   * long that slice ran and how many items are done so far. Ships in the
+   * production build, unlike this package's own dev-only diagnostics — wire
+   * it to your own telemetry to verify, on real traffic, that this task is
+   * actually staying under `timeSliceMs`.
+   */
+  readonly onSlice?: (durationMs: number, processed: number) => void;
+  /** Called right after each yield resolves and work is about to resume. Pairs with `onSlice`. */
+  readonly onYield?: () => void;
 }
 
 export interface UseChunkedTaskState<R> {
@@ -40,6 +64,8 @@ export interface UseChunkedTaskState<R> {
   readonly error: unknown;
   /** The full results array once the task has settled — `undefined` until then. */
   readonly results: readonly R[] | undefined;
+  /** Items `onError` has skipped so far, growing live as skips happen. Empty when unused. */
+  readonly skipped: readonly SkippedChunkItem[];
   readonly isIdle: boolean;
   readonly isProcessing: boolean;
   readonly isPaused: boolean;
@@ -80,6 +106,9 @@ export function useChunkedTask<T, R>(
     collectResults,
     autoStart = true,
     onItem,
+    onError,
+    onSlice,
+    onYield,
   } = options ?? {};
 
   // Stable identity, always runs the latest processItem/onItem passed this
@@ -92,6 +121,16 @@ export function useChunkedTask<T, R>(
   );
   const stableOnItem = useEffectEvent((result: R, item: T, index: number) => {
     onItem?.(result, item, index);
+  });
+  const stableOnError = useEffectEvent(
+    (error: unknown, item: T, index: number): 'skip' | 'abort' =>
+      onError?.(error, item, index) ?? 'abort',
+  );
+  const stableOnSlice = useEffectEvent((durationMs: number, processed: number) => {
+    onSlice?.(durationMs, processed);
+  });
+  const stableOnYield = useEffectEvent(() => {
+    onYield?.();
   });
 
   // Created once, lazily, via useState rather than a ref mutated during
@@ -118,6 +157,9 @@ export function useChunkedTask<T, R>(
       items,
       processItem: stableProcessItem,
       onItem: stableOnItem,
+      onError: stableOnError,
+      onSlice: stableOnSlice,
+      onYield: stableOnYield,
       ...(timeSliceMs !== undefined ? { timeSliceMs } : {}),
       ...(batchSize !== undefined ? { batchSize } : {}),
       ...(collectResults !== undefined ? { collectResults } : {}),
@@ -131,8 +173,9 @@ export function useChunkedTask<T, R>(
       scheduler.cancel();
       controller.replace(null);
     };
-    // stableProcessItem/stableOnItem are Effect Events: stable by
-    // construction, intentionally excluded from the reactive dependency set
+    // stableProcessItem/stableOnItem/stableOnError/stableOnSlice/stableOnYield
+    // are Effect Events: stable by construction, intentionally excluded
+    // from the reactive dependency set
     // (that's the whole point of useEffectEvent) rather than omitted by
     // oversight.
   }, [items, timeSliceMs, batchSize, collectResults, autoStart, controller]);
@@ -152,6 +195,7 @@ export function useChunkedTask<T, R>(
     // always arrive together and a concurrent render can never tear them
     // apart.
     results: snapshot.results,
+    skipped: snapshot.skipped ?? NO_SKIPPED,
     isIdle: snapshot.status === 'idle',
     isProcessing: snapshot.status === 'processing',
     isPaused: snapshot.status === 'paused',

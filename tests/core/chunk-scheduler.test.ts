@@ -1,4 +1,12 @@
-import { describe, expect, it, vi } from 'vitest';
+import {
+  type MockInstance,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { createChunkScheduler } from '../../src/core/chunk-scheduler.js';
 
@@ -338,9 +346,9 @@ describe('createChunkScheduler() — cancellation', () => {
     expect(scheduler.getSnapshot().status).toBe('done');
   });
 
-  it('an AbortSignal aborted before creation cancels the task without ever running it', async () => {
+  it('an AbortSignal aborted before creation cancels the task without ever running it, carrying its reason', async () => {
     const controller = new AbortController();
-    controller.abort();
+    controller.abort('shutting down');
     const processItem = vi.fn((x: number) => x);
     const scheduler = createChunkScheduler({
       items: [1, 2, 3],
@@ -350,10 +358,12 @@ describe('createChunkScheduler() — cancellation', () => {
     scheduler.start();
     const result = await scheduler.settled;
     expect(result.status).toBe('cancelled');
+    expect(result.reason).toBe('shutting down');
+    expect(scheduler.getSnapshot().reason).toBe('shutting down');
     expect(processItem).not.toHaveBeenCalled();
   });
 
-  it('aborting the signal mid-run behaves exactly like calling cancel()', async () => {
+  it('aborting the signal mid-run behaves exactly like calling cancel(), and carries its reason', async () => {
     const controller = new AbortController();
     const items = Array.from({ length: 100 }, (_, i) => i);
     const scheduler = createChunkScheduler({
@@ -361,14 +371,27 @@ describe('createChunkScheduler() — cancellation', () => {
       processItem: (x: number) => x,
       timeSliceMs: 0.0001,
       onItem: (_r, _item, index) => {
-        if (index === 10) controller.abort();
+        if (index === 10) controller.abort('stopped by caller');
       },
       signal: controller.signal,
     });
     scheduler.start();
     const result = await scheduler.settled;
     expect(result.status).toBe('cancelled');
+    expect(result.reason).toBe('stopped by caller');
+    expect(scheduler.getSnapshot().reason).toBe('stopped by caller');
     expect(result.results.length).toBeLessThan(items.length);
+  });
+
+  it('a direct cancel() call (no AbortSignal involved) carries no reason', async () => {
+    const scheduler = createChunkScheduler({
+      items: [1, 2, 3],
+      processItem: (x: number) => x,
+    });
+    scheduler.cancel();
+    const result = await scheduler.settled;
+    expect(result.status).toBe('cancelled');
+    expect(result.reason).toBeUndefined();
   });
 });
 
@@ -454,6 +477,178 @@ describe('createChunkScheduler() — errors', () => {
     scheduler.start();
     const result = await scheduler.settled;
     expect(result.error).toBe('a plain string failure');
+  });
+});
+
+describe('createChunkScheduler() — onError', () => {
+  it('returning "skip" drops that item, keeps processing the rest, and records it in skipped', async () => {
+    const onError = vi.fn(() => 'skip' as const);
+    const scheduler = createChunkScheduler({
+      items: [1, 2, 3, 4],
+      processItem: (x: number) => {
+        if (x === 2) throw new Error('bad item');
+        return x * 10;
+      },
+      onError,
+    });
+    scheduler.start();
+    const result = await scheduler.settled;
+    expect(result.status).toBe('done');
+    // The skipped item contributes nothing to results, in index order.
+    expect(result.results).toEqual([10, 30, 40]);
+    expect(result.skipped).toEqual([{ index: 1, error: new Error('bad item') }]);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(new Error('bad item'), 2, 1);
+  });
+
+  it('is visible on a live getSnapshot() before the task settles, not only in the final result', async () => {
+    let sawSkippedWhileProcessing: unknown;
+    const scheduler = createChunkScheduler({
+      items: [1, 2, 3],
+      processItem: (x: number) => {
+        if (x === 1) throw new Error('nope');
+        return x;
+      },
+      timeSliceMs: 0.0001, // force a yield checkpoint after the skip
+      onError: () => 'skip',
+      onSlice: () => {
+        sawSkippedWhileProcessing = scheduler.getSnapshot().skipped;
+      },
+    });
+    scheduler.start();
+    await scheduler.settled;
+    expect(sawSkippedWhileProcessing).toEqual([{ index: 0, error: new Error('nope') }]);
+  });
+
+  it('omitting onError defaults to "abort", identical to the pre-existing behavior', async () => {
+    const scheduler = createChunkScheduler({
+      items: [1, 2, 3],
+      processItem: (x: number) => {
+        if (x === 2) throw new Error('bad item');
+        return x;
+      },
+    });
+    scheduler.start();
+    const result = await scheduler.settled;
+    expect(result.status).toBe('error');
+    expect(result.skipped).toBeUndefined();
+  });
+
+  it('a value other than "skip" (including "abort") aborts the task, same as throwing with no onError', async () => {
+    const onError = vi.fn(() => 'abort' as const);
+    const scheduler = createChunkScheduler({
+      items: [1, 2],
+      processItem: () => {
+        throw new Error('bad item');
+      },
+      onError,
+    });
+    scheduler.start();
+    const result = await scheduler.settled;
+    expect(result.status).toBe('error');
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('createChunkScheduler() — misuse warnings (development only)', () => {
+  let warn: MockInstance<(...args: unknown[]) => void>;
+
+  beforeEach(() => {
+    warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined) as MockInstance<
+      (...args: unknown[]) => void
+    >;
+  });
+
+  afterEach(() => {
+    warn.mockRestore();
+  });
+
+  it('warns once when processItem returns a Promise, however many items do it', async () => {
+    const scheduler = createChunkScheduler({
+      items: [1, 2, 3],
+      processItem: (x: number) => Promise.resolve(x) as unknown as number,
+    });
+    scheduler.start();
+    await scheduler.settled;
+    const promiseWarnings = warn.mock.calls.filter((call) =>
+      String(call[0]).includes('returned a Promise'),
+    );
+    expect(promiseWarnings).toHaveLength(1);
+  });
+
+  it('stays quiet when processItem returns an ordinary, non-thenable value', async () => {
+    const scheduler = createChunkScheduler({
+      items: [1, 2, 3],
+      processItem: (x: number) => ({ value: x }),
+    });
+    scheduler.start();
+    await scheduler.settled;
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('warns at creation when collectResults is false and no onItem is passed', () => {
+    createChunkScheduler({
+      items: [1, 2, 3],
+      processItem: (x: number) => x,
+      collectResults: false,
+    });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('collectResults is false and no onItem was passed'),
+    );
+  });
+
+  it('stays quiet when collectResults is false but onItem is passed', () => {
+    createChunkScheduler({
+      items: [1, 2, 3],
+      processItem: (x: number) => x,
+      collectResults: false,
+      onItem: () => undefined,
+    });
+    expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe('createChunkScheduler() — onSlice / onYield', () => {
+  it('calls onSlice before, and onYield after, every yield checkpoint', async () => {
+    const items = Array.from({ length: 50 }, (_, i) => i);
+    const calls: string[] = [];
+    const scheduler = createChunkScheduler({
+      items,
+      processItem: (x: number) => x,
+      timeSliceMs: 0.0001, // forces a yield checkpoint after virtually every item
+      onSlice: (durationMs, processed) => {
+        expect(durationMs).toBeGreaterThanOrEqual(0);
+        expect(processed).toBeGreaterThan(0);
+        calls.push('slice');
+      },
+      onYield: () => {
+        calls.push('yield');
+      },
+    });
+    scheduler.start();
+    await scheduler.settled;
+    expect(calls.length).toBeGreaterThan(0);
+    // Every 'slice' is immediately followed by its matching 'yield'.
+    for (let i = 0; i < calls.length; i += 2) {
+      expect(calls[i]).toBe('slice');
+      expect(calls[i + 1]).toBe('yield');
+    }
+  });
+
+  it('never calls onSlice/onYield for a task that finishes inside one slice', async () => {
+    const onSlice = vi.fn();
+    const onYield = vi.fn();
+    const scheduler = createChunkScheduler({
+      items: [1, 2, 3],
+      processItem: (x: number) => x,
+      onSlice,
+      onYield,
+    });
+    scheduler.start();
+    await scheduler.settled;
+    expect(onSlice).not.toHaveBeenCalled();
+    expect(onYield).not.toHaveBeenCalled();
   });
 });
 

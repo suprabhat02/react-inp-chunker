@@ -48,6 +48,21 @@ function warn(message: string): void {
 }
 
 /**
+ * The same prefixed channel as the slice-timing guidance below, exposed for
+ * the one-shot misuse warnings in chunk-scheduler.ts (an async
+ * `processItem`, a `collectResults: false` with no `onItem` to catch the
+ * results it discards). Those checks live next to the code they're
+ * guarding rather than in this file, but they go through the same
+ * development-only gate: calling it has to compile away exactly like
+ * `createDiagnostics` does, so `diagnostics.production.ts` carries a
+ * matching no-op and the `_sameShape` check below catches drift between
+ * them.
+ */
+export function warnDev(message: string): void {
+  warn(message);
+}
+
+/**
  * A batch that should take about TARGET_BATCH_MS, which is also the
  * overshoot the caller takes on by accepting it. No lower bound is needed:
  * the warning only fires below CLOCK_BOUND_UNIT_MS, so the result is

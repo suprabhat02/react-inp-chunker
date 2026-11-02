@@ -6,7 +6,7 @@ import {
   isTerminal,
   transition,
 } from './chunk-machine.js';
-import { createDiagnostics, isDevelopment } from './diagnostics.js';
+import { createDiagnostics, isDevelopment, warnDev } from './diagnostics.js';
 import {
   type YieldStrategy,
   normalizeBatchSize,
@@ -45,16 +45,53 @@ export interface ChunkSchedulerOptions<T, R> {
   readonly collectResults?: boolean;
   /** Called after each item is successfully processed. */
   readonly onItem?: (result: R, item: T, index: number) => void;
+  /**
+   * Called when `processItem` throws. Return `'skip'` to drop that one item
+   * and keep going — its index and error are recorded in `skipped`, on both
+   * the live snapshot and the settled result — or return `'abort'` to end
+   * the task the way it always has, as an `'error'` result carrying
+   * whatever was collected before the throw. Omitting `onItem` defaults to
+   * `'abort'`, so existing callers see no behavior change.
+   *
+   * Only ever called for `processItem` throwing. An `onItem` that throws
+   * still aborts unconditionally: that's the caller's own progress handler
+   * misbehaving, not a per-item failure there's anything to recover from.
+   */
+  readonly onError?: (error: unknown, item: T, index: number) => 'skip' | 'abort';
   /** External cancellation source — aborting it is equivalent to calling cancel(). */
   readonly signal?: AbortSignal;
   /** Testing-only: forces a specific yield strategy instead of auto-detecting one. */
   readonly yieldStrategy?: YieldStrategy;
+  /**
+   * Called every time a slice ends and the task is about to yield, with how
+   * long that slice ran and how many items are done so far. Unlike the
+   * development-only diagnostics above, this ships in the production
+   * build — wire it to your own telemetry so you can verify, on real
+   * traffic, that this task is actually staying under `timeSliceMs`,
+   * instead of trusting this package's own benchmark numbers.
+   */
+  readonly onSlice?: (durationMs: number, processed: number) => void;
+  /** Called right after each yield resolves and work is about to resume. Pairs with `onSlice`. */
+  readonly onYield?: () => void;
+}
+
+/** One item `onError` chose to skip, in the order it happened. */
+export interface SkippedChunkItem {
+  readonly index: number;
+  readonly error: unknown;
 }
 
 export interface ChunkSchedulerResult<R> {
   readonly status: 'done' | 'cancelled' | 'error';
   readonly results: readonly R[];
   readonly error?: unknown;
+  /** Items `onError` skipped. Omitted when nothing was skipped. */
+  readonly skipped?: readonly SkippedChunkItem[];
+  /**
+   * The `AbortSignal`'s `reason`, present only when this cancellation came
+   * from that signal aborting rather than a direct `cancel()` call.
+   */
+  readonly reason?: unknown;
 }
 
 export interface ChunkSnapshot<R = unknown> {
@@ -68,6 +105,17 @@ export interface ChunkSnapshot<R = unknown> {
    * observe `status: 'done'` without the results that go with it.
    */
   readonly results?: readonly R[];
+  /**
+   * Items `onError` has skipped so far — growing live as skips happen,
+   * unlike `results` above: there's nothing unsafe about reading this
+   * mid-run. Omitted entirely until the first skip.
+   */
+  readonly skipped?: readonly SkippedChunkItem[];
+  /**
+   * The `AbortSignal`'s `reason`, present as soon as that signal aborts —
+   * before the task finishes settling, the same as `error` above.
+   */
+  readonly reason?: unknown;
 }
 
 export interface ChunkScheduler<R> {
@@ -104,6 +152,21 @@ function at<T>(items: readonly T[], index: number): T {
 }
 
 /**
+ * Loose, `typeof`-only thenable check — the same test `await` itself uses,
+ * not an `instanceof Promise` (which would miss any other Promise-like:
+ * a different realm's Promise, a userland polyfill). Good enough for a
+ * one-shot development warning; never throws on anything a caller could
+ * plausibly have returned.
+ */
+function isThenable(value: unknown): boolean {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    typeof (value as { then?: unknown }).then === 'function'
+  );
+}
+
+/**
  * Builds a one-shot, controllable scheduler that processes `items` through
  * `processItem`, yielding to the main thread on a time budget (and sooner,
  * if the browser reports pending input) so a large array never produces a
@@ -118,17 +181,25 @@ function at<T>(items: readonly T[], index: number): T {
 export function createChunkScheduler<T, R>(
   options: ChunkSchedulerOptions<T, R>,
 ): ChunkScheduler<R> {
-  const { items, processItem, onItem, signal, yieldStrategy } = options;
+  const { items, processItem, onItem, onError, signal, yieldStrategy, onSlice, onYield } =
+    options;
   const timeSliceMs = normalizeTimeSliceMs(options.timeSliceMs);
   const batchSize = normalizeBatchSize(options.batchSize);
   const collectResults = options.collectResults ?? true;
   const total = items.length;
+
+  if (isDevelopment && !collectResults && onItem === undefined) {
+    warnDev(
+      'collectResults is false and no onItem was passed — every result will be computed and then discarded, with nothing to retrieve once the task settles. Pass onItem to consume results as they finish, or drop collectResults: false if you need the final array.',
+    );
+  }
 
   // Resolved once per scheduler, not per item: the feature detection behind
   // it walks `navigator.scheduling.isInputPending` through optional calls,
   // which is wasted work on every item of a million-item task.
   const inputPending = resolveInputPending();
   const diagnostics = createDiagnostics('item', batchSize);
+  let warnedAboutAsyncResult = false;
 
   let machineState: ChunkMachineState = initialChunkState;
   let processed = 0;
@@ -136,6 +207,8 @@ export function createChunkScheduler<T, R>(
   let settledFlag = false;
   const results: R[] = [];
   let finalResults: readonly R[] | undefined;
+  const skipped: SkippedChunkItem[] = [];
+  let cancelReason: unknown;
 
   // Built on demand rather than after every item. useSyncExternalStore
   // requires repeated calls between notifications to return the *same*
@@ -183,6 +256,8 @@ export function createChunkScheduler<T, R>(
         total,
         ...(machineState.error !== undefined ? { error: machineState.error } : {}),
         ...(finalResults !== undefined ? { results: finalResults } : {}),
+        ...(skipped.length > 0 ? { skipped: skipped.slice() } : {}),
+        ...(cancelReason !== undefined ? { reason: cancelReason } : {}),
       };
     }
     return snapshot;
@@ -234,11 +309,15 @@ export function createChunkScheduler<T, R>(
     published: readonly R[],
     error?: unknown,
   ): void {
-    settle(
-      status === 'error'
-        ? { status, error, results: published }
-        : { status, results: published },
-    );
+    settle({
+      status,
+      results: published,
+      ...(error !== undefined ? { error } : {}),
+      ...(skipped.length > 0 ? { skipped: skipped.slice() } : {}),
+      ...(status === 'cancelled' && cancelReason !== undefined
+        ? { reason: cancelReason }
+        : {}),
+    });
   }
 
   /**
@@ -268,6 +347,7 @@ export function createChunkScheduler<T, R>(
   }
 
   function handleAbort(): void {
+    cancelReason = signal?.reason;
     cancel();
   }
 
@@ -276,6 +356,7 @@ export function createChunkScheduler<T, R>(
   }
 
   if (signal?.aborted) {
+    cancelReason = signal.reason;
     dispatch({ type: 'CANCEL' });
   } else {
     signal?.addEventListener('abort', handleAbort);
@@ -309,7 +390,26 @@ export function createChunkScheduler<T, R>(
         const batchEnd = index + batchSize <= total ? index + batchSize : total;
         while (index < batchEnd) {
           const item = at(items, index);
-          const result = processItem(item, index);
+          let result: R;
+          try {
+            result = processItem(item, index);
+          } catch (caught) {
+            // Default ('abort', same as omitting onError) rethrows into the
+            // outer try below, so a caller with no onError sees exactly the
+            // same error-and-stop behavior this always had.
+            if ((onError?.(caught, item, index) ?? 'abort') !== 'skip') throw caught;
+            skipped.push({ index, error: caught });
+            processed = index + 1;
+            snapshotStale = true;
+            index += 1;
+            continue;
+          }
+          if (isDevelopment && !warnedAboutAsyncResult && isThenable(result)) {
+            warnedAboutAsyncResult = true;
+            warnDev(
+              'processItem returned a Promise. createChunkScheduler calls it synchronously and never awaits the result, so results will contain unresolved Promise objects instead of the values they resolve to. Resolve the value before returning it, or chunk the async work a different way.',
+            );
+          }
           if (collectResults) results.push(result);
           processed = index + 1;
           onItem?.(result, item, index);
@@ -325,11 +425,13 @@ export function createChunkScheduler<T, R>(
 
         if (checkedAt - sliceStartedAt >= timeSliceMs || inputPending()) {
           if (isDevelopment) diagnostics.sliceEnded(checkedAt, index);
+          onSlice?.(checkedAt - sliceStartedAt, index);
           await yieldToMain(
             yieldStrategy !== undefined ? { strategy: yieldStrategy } : undefined,
           );
           notify(); // surface the progress made during this slice
           sliceStartedAt = now();
+          onYield?.();
           if (isDevelopment) diagnostics.resumed(sliceStartedAt, index);
         }
       }

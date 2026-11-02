@@ -301,18 +301,20 @@ describe('createDeferredTask() — cancellation', () => {
     expect(deferred.getSnapshot().status).toBe('done');
   });
 
-  it('an AbortSignal aborted before creation cancels the task without ever invoking the generator', async () => {
+  it('an AbortSignal aborted before creation cancels the task without ever invoking the generator, carrying its reason', async () => {
     const controller = new AbortController();
-    controller.abort();
+    controller.abort('shutting down');
     const task = vi.fn(() => countingTask(3, []));
     const deferred = createDeferredTask({ task, signal: controller.signal });
     deferred.start();
     const result = await deferred.settled;
     expect(result.status).toBe('cancelled');
+    expect(result.reason).toBe('shutting down');
+    expect(deferred.getSnapshot().reason).toBe('shutting down');
     expect(task).not.toHaveBeenCalled();
   });
 
-  it('aborting the signal mid-run behaves exactly like calling cancel()', async () => {
+  it('aborting the signal mid-run behaves exactly like calling cancel(), and carries its reason', async () => {
     const controller = new AbortController();
     const progress: number[] = [];
     const deferred = createDeferredTask({
@@ -321,12 +323,61 @@ describe('createDeferredTask() — cancellation', () => {
       signal: controller.signal,
     });
     deferred.subscribe(() => {
-      if (progress.length === 10) controller.abort();
+      if (progress.length === 10) controller.abort('stopped by caller');
     });
     deferred.start();
     const result = await deferred.settled;
     expect(result.status).toBe('cancelled');
+    expect(result.reason).toBe('stopped by caller');
+    expect(deferred.getSnapshot().reason).toBe('stopped by caller');
     expect(progress.length).toBeLessThan(100);
+  });
+
+  it('a direct cancel() call (no AbortSignal involved) carries no reason', async () => {
+    const deferred = createDeferredTask({ task: () => countingTask(3, []) });
+    deferred.cancel();
+    const result = await deferred.settled;
+    expect(result.status).toBe('cancelled');
+    expect(result.reason).toBeUndefined();
+  });
+});
+
+describe('createDeferredTask() — onSlice / onYield', () => {
+  it('calls onSlice before, and onYield after, every yield checkpoint', async () => {
+    const calls: string[] = [];
+    const deferred = createDeferredTask({
+      task: () => countingTask(50, []),
+      timeSliceMs: 0.0001,
+      onSlice: (durationMs, segmentsDone) => {
+        expect(durationMs).toBeGreaterThanOrEqual(0);
+        expect(segmentsDone).toBeGreaterThan(0);
+        calls.push('slice');
+      },
+      onYield: () => {
+        calls.push('yield');
+      },
+    });
+    deferred.start();
+    await deferred.settled;
+    expect(calls.length).toBeGreaterThan(0);
+    for (let i = 0; i < calls.length; i += 2) {
+      expect(calls[i]).toBe('slice');
+      expect(calls[i + 1]).toBe('yield');
+    }
+  });
+
+  it('never calls onSlice/onYield for a task that finishes inside one slice', async () => {
+    const onSlice = vi.fn();
+    const onYield = vi.fn();
+    const deferred = createDeferredTask({
+      task: () => countingTask(3, []),
+      onSlice,
+      onYield,
+    });
+    deferred.start();
+    await deferred.settled;
+    expect(onSlice).not.toHaveBeenCalled();
+    expect(onYield).not.toHaveBeenCalled();
   });
 });
 

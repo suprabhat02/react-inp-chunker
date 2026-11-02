@@ -21,6 +21,15 @@ export interface UseDeferredTaskOptions {
   readonly batchSize?: number;
   /** Start processing automatically when the task is (re)created. Default `true`. */
   readonly autoStart?: boolean;
+  /**
+   * Called every time a segment-batch ends and the task is about to yield,
+   * with how long that slice ran and how many segments are done so far.
+   * Ships in the production build — see the identical option on
+   * `useChunkedTask`/`createChunkScheduler` for why.
+   */
+  readonly onSlice?: (durationMs: number, segmentsDone: number) => void;
+  /** Called right after each yield resolves and work is about to resume. Pairs with `onSlice`. */
+  readonly onYield?: () => void;
 }
 
 export interface UseDeferredTaskState<T> {
@@ -58,12 +67,18 @@ export function useDeferredTask<T>(
   deps: readonly unknown[],
   options?: UseDeferredTaskOptions,
 ): UseDeferredTaskState<T> {
-  const { timeSliceMs, batchSize, autoStart = true } = options ?? {};
+  const { timeSliceMs, batchSize, autoStart = true, onSlice, onYield } = options ?? {};
 
   // Stable identity, always runs the latest `task` passed this render —
   // see useChunkedTask.ts for why this is useEffectEvent rather than a ref
   // mutated during render.
   const stableTask = useEffectEvent(() => task());
+  const stableOnSlice = useEffectEvent((durationMs: number, segmentsDone: number) => {
+    onSlice?.(durationMs, segmentsDone);
+  });
+  const stableOnYield = useEffectEvent(() => {
+    onYield?.();
+  });
 
   const [controller] = useState(() => createTaskController<DeferredTask<T>>());
 
@@ -77,6 +92,8 @@ export function useDeferredTask<T>(
     () => {
       const deferredTask = createDeferredTask<T>({
         task: stableTask,
+        onSlice: stableOnSlice,
+        onYield: stableOnYield,
         ...(timeSliceMs !== undefined ? { timeSliceMs } : {}),
         ...(batchSize !== undefined ? { batchSize } : {}),
       });

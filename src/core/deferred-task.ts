@@ -57,12 +57,26 @@ export interface DeferredTaskOptions<T> {
   readonly signal?: AbortSignal;
   /** Testing-only: forces a specific yield strategy instead of auto-detecting one. */
   readonly yieldStrategy?: YieldStrategy;
+  /**
+   * Called every time a segment-batch ends and the task is about to yield,
+   * with how long that slice ran and how many segments are done so far.
+   * Ships in the production build — see the identical option on
+   * `createChunkScheduler` for why.
+   */
+  readonly onSlice?: (durationMs: number, segmentsDone: number) => void;
+  /** Called right after each yield resolves and work is about to resume. Pairs with `onSlice`. */
+  readonly onYield?: () => void;
 }
 
 export interface DeferredTaskResult<T> {
   readonly status: 'done' | 'cancelled' | 'error';
   readonly value?: T;
   readonly error?: unknown;
+  /**
+   * The `AbortSignal`'s `reason`, present only when this cancellation came
+   * from that signal aborting rather than a direct `cancel()` call.
+   */
+  readonly reason?: unknown;
 }
 
 export interface DeferredTaskSnapshot<T = unknown> {
@@ -74,6 +88,11 @@ export interface DeferredTaskSnapshot<T = unknown> {
    * `status: 'done'` without the value that goes with it.
    */
   readonly value?: T;
+  /**
+   * The `AbortSignal`'s `reason`, present as soon as that signal aborts —
+   * before the task finishes settling, the same as `error` above.
+   */
+  readonly reason?: unknown;
 }
 
 export interface DeferredTask<T> {
@@ -96,7 +115,7 @@ export interface DeferredTask<T> {
  * here unchanged.
  */
 export function createDeferredTask<T>(options: DeferredTaskOptions<T>): DeferredTask<T> {
-  const { task, signal, yieldStrategy } = options;
+  const { task, signal, yieldStrategy, onSlice, onYield } = options;
   const timeSliceMs = normalizeTimeSliceMs(options.timeSliceMs);
   const batchSize = normalizeBatchSize(options.batchSize);
   // Resolved once per task rather than per segment; see chunk-scheduler.ts.
@@ -107,6 +126,7 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
   let loopStarted = false;
   let settledFlag = false;
   let settledValue: T | undefined;
+  let cancelReason: unknown;
 
   // Built on demand, and only when something has actually changed.
   // useSyncExternalStore requires repeated calls between notifications to
@@ -150,6 +170,7 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
         status: machineState.status,
         ...(machineState.error !== undefined ? { error: machineState.error } : {}),
         ...(settledValue !== undefined ? { value: settledValue } : {}),
+        ...(cancelReason !== undefined ? { reason: cancelReason } : {}),
       };
     }
     return snapshot;
@@ -201,7 +222,11 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
       });
       return;
     }
-    settle(status === 'error' ? { status, error } : { status });
+    if (status === 'error') {
+      settle({ status, error });
+      return;
+    }
+    settle({ status, ...(cancelReason !== undefined ? { reason: cancelReason } : {}) });
   }
 
   /**
@@ -225,6 +250,7 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
   }
 
   function handleAbort(): void {
+    cancelReason = signal?.reason;
     cancel();
   }
 
@@ -233,6 +259,7 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
   }
 
   if (signal?.aborted) {
+    cancelReason = signal.reason;
     dispatch({ type: 'CANCEL' });
   } else {
     signal?.addEventListener('abort', handleAbort);
@@ -308,11 +335,13 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
 
         if (checkedAt - sliceStartedAt >= timeSliceMs || inputPending()) {
           if (isDevelopment) diagnostics.sliceEnded(checkedAt, segment);
+          onSlice?.(checkedAt - sliceStartedAt, segment);
           await yieldToMain(
             yieldStrategy !== undefined ? { strategy: yieldStrategy } : undefined,
           );
           notify();
           sliceStartedAt = now();
+          onYield?.();
           if (isDevelopment) diagnostics.resumed(sliceStartedAt, segment);
         }
       }

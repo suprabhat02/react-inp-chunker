@@ -1,6 +1,6 @@
 {
   "name": "react-inp-chunker",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Headless React/TypeScript primitives that chunk heavy synchronous work and yield to the main thread, so long-running updates never cost you Interaction to Next Paint (INP).",
   "keywords": [
     "react",
@@ -135,7 +135,7 @@
       "name": "core (import { createChunkScheduler })",
       "path": "dist/production/core/index.js",
       "import": "{ createChunkScheduler }",
-      "limit": "1.4 kB"
+      "limit": "1.55 kB"
     },
     {
       "name": "useChunkedTask",
@@ -147,7 +147,7 @@
       "name": "useDeferredTask",
       "path": "dist/production/index.js",
       "import": "{ useDeferredTask }",
-      "limit": "1.8 kB"
+      "limit": "1.9 kB"
     },
     {
       "name": "everything",
