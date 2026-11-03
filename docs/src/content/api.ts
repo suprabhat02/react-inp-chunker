@@ -67,6 +67,23 @@ export const CHUNKED_OPTIONS: readonly ApiRow[] = [
     description:
       'Called after each item, with its result. Use it to consume results while the task is still running.',
   },
+  {
+    name: 'onError',
+    type: "(error: unknown, item: T, index: number) => 'skip' | 'abort'",
+    description:
+      "Called when processItem throws. Return 'skip' to drop that one item and keep going — it's recorded in skipped — or 'abort' to end the task as an error, the same as omitting this option entirely.",
+  },
+  {
+    name: 'onSlice',
+    type: '(durationMs: number, processed: number) => void',
+    description:
+      'Called every time a slice ends, with how long it ran and how many items are done so far. Ships in production, unlike the dev-only warnings above — wire it to your own telemetry to confirm timeSliceMs on real traffic.',
+  },
+  {
+    name: 'onYield',
+    type: '() => void',
+    description: 'Called right after each yield resolves and work is about to resume. Pairs with onSlice.',
+  },
 ];
 
 const STATUS_ROW: ApiRow = {
@@ -127,6 +144,12 @@ export const CHUNKED_RETURNS: readonly ApiRow[] = [
     description:
       'Set when the task ends: every result when done, the ones finished so far when cancelled or failed, an empty array with collectResults: false. undefined until then, and always set in the same render that first reports a finished status.',
   },
+  {
+    name: 'skipped',
+    type: 'readonly SkippedChunkItem[]',
+    description:
+      "Items onError returned 'skip' for, growing live as skips happen — safe to read mid-run, unlike results. Empty array when unused.",
+  },
   ...SHARED_STATE,
 ];
 
@@ -148,7 +171,7 @@ export const DEFERRED_ARGS: readonly ApiRow[] = [
     type: 'UseDeferredTaskOptions',
     defaultValue: '{}',
     description:
-      'timeSliceMs (default 5), batchSize (default 1, counted in segments rather than items) and autoStart (default true), as for useChunkedTask.',
+      'timeSliceMs (default 5), batchSize (default 1, counted in segments rather than items) and autoStart (default true), as for useChunkedTask. Also onSlice and onYield, with the same production-telemetry contract — segment count in place of item count. No onError: skipping one step of a stateful generator mid-flight has no well-defined meaning.',
   },
 ];
 
@@ -183,13 +206,13 @@ export const CORE_EXPORTS: readonly ApiRow[] = [
     name: 'createChunkScheduler(options)',
     type: 'ChunkScheduler<R>',
     description:
-      'The engine behind useChunkedTask. Options: items, processItem, timeSliceMs, batchSize, collectResults, onItem, signal (an AbortSignal).',
+      'The engine behind useChunkedTask. Options: items, processItem, timeSliceMs, batchSize, collectResults, onItem, onError, onSlice, onYield, signal (an AbortSignal — its reason, if any, comes through on the result and on getSnapshot()).',
   },
   {
     name: 'createDeferredTask(options)',
     type: 'DeferredTask<T>',
     description:
-      'The engine behind useDeferredTask. Options: task, timeSliceMs, batchSize, signal.',
+      'The engine behind useDeferredTask. Options: task, timeSliceMs, batchSize, onSlice, onYield, signal (same reason passthrough as above).',
   },
   {
     name: '.start() .pause() .resume() .cancel()',
@@ -204,15 +227,15 @@ export const CORE_EXPORTS: readonly ApiRow[] = [
   },
   {
     name: '.getSnapshot()',
-    type: '{ status, processed, total, error? }',
+    type: '{ status, processed, total, error?, reason? }',
     description:
-      "The current state (a deferred task's has no processed or total). The same object until something changes, so it plugs straight into useSyncExternalStore.",
+      "The current state (a deferred task's has no processed or total; a chunk scheduler's also has skipped, growing live as onError skips items). reason appears as soon as an AbortSignal aborts. The same object until something changes, so it plugs straight into useSyncExternalStore.",
   },
   {
     name: '.settled',
-    type: "Promise<{ status: 'done' | 'cancelled' | 'error', … }>",
+    type: "Promise<{ status: 'done' | 'cancelled' | 'error', reason?, … }>",
     description:
-      'Resolves once when the task ends, with its results or value. Never rejects.',
+      'Resolves once when the task ends, with its results or value, the AbortSignal reason if that caused the cancellation, and (chunk scheduler only) any skipped items. Never rejects.',
   },
   {
     name: 'yieldToMain()',
@@ -229,6 +252,12 @@ export const CORE_EXPORTS: readonly ApiRow[] = [
     name: 'DEFAULT_TIME_SLICE_MS',
     type: 'number',
     description: '5.',
+  },
+  {
+    name: 'SkippedChunkItem',
+    type: '{ index: number, error: unknown }',
+    description:
+      "One item onError returned 'skip' for. Exported as a type so you can name the shape of a chunk scheduler's skipped array.",
   },
   {
     name: 'isTerminal(status)',
