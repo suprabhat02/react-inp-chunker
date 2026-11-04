@@ -16,6 +16,56 @@ function* countingTask(n: number, progress: number[]): DeferredGenerator<number>
   return n;
 }
 
+describe('useDeferredTask() — signal', () => {
+  it('cancels the task when the signal aborts, surfacing its reason', async () => {
+    const progress: number[] = [];
+    const controller = new AbortController();
+    const { result } = renderHook(() =>
+      useDeferredTask(() => countingTask(100, progress), [], {
+        timeSliceMs: 0.0001,
+        signal: controller.signal,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(progress.length).toBeGreaterThan(0);
+    });
+
+    act(() => {
+      controller.abort('stopped by caller');
+    });
+
+    await waitFor(() => {
+      expect(result.current.isCancelled).toBe(true);
+    });
+    expect(result.current.reason).toBe('stopped by caller');
+  });
+
+  it('reports no reason for a direct cancel() call', async () => {
+    const progress: number[] = [];
+    const controller = new AbortController();
+    const { result } = renderHook(() =>
+      useDeferredTask(() => countingTask(100, progress), [], {
+        timeSliceMs: 0.0001,
+        signal: controller.signal,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(progress.length).toBeGreaterThan(0);
+    });
+
+    act(() => {
+      result.current.cancel();
+    });
+
+    await waitFor(() => {
+      expect(result.current.isCancelled).toBe(true);
+    });
+    expect(result.current.reason).toBeUndefined();
+  });
+});
+
 describe('useDeferredTask() — autoStart (default)', () => {
   // As with useChunkedTask, `deps` must be a stable array reference across
   // re-renders in these tests: the hook treats `deps` exactly like

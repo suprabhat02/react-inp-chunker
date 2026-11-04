@@ -7,8 +7,8 @@ support branches: upgrade to the current version to receive them.
 
 | Version | Supported |
 | ------- | --------- |
-| 0.2.x   | Yes       |
-| < 0.2   | No        |
+| 0.3.x   | Yes       |
+| < 0.3   | No        |
 
 ## Reporting a vulnerability
 
@@ -49,3 +49,7 @@ test suite is built around, and the ones worth reporting.
 - Every GitHub Action is pinned to a commit SHA, not a tag.
 - CI fails on any known vulnerability, in runtime or development
   dependencies, at any severity.
+- Every release (0.4.0 onward) carries a CycloneDX SBOM as a release
+  asset, covering the full tree that fed the build — not just the
+  (zero) runtime dependencies that ship in the tarball — for scanning
+  with your own vulnerability-management tooling.

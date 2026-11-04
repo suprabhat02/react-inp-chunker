@@ -4,6 +4,49 @@ All notable changes to this package are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); this package
 follows [Semantic Versioning](https://semver.org/).
 
+## 0.4.0 — 2026-11-04
+
+Type safety and supply-chain hardening: the return shapes you were already
+getting, made precise enough for the compiler to check them, plus a `signal`
+option on both hooks and a build-time SBOM on every release. No change to
+existing behavior — `is*` booleans, flat field access, and every documented
+default all still work exactly as before.
+
+### Changed
+
+- **Discriminated return types.** `ChunkSchedulerResult`, `ChunkSnapshot`,
+  `DeferredTaskResult`, `DeferredTaskSnapshot`, and both hooks' return state
+  are now unions discriminated on `status`, not flat interfaces with
+  independently-optional fields. Narrowing `status === 'done'` (or
+  `'cancelled'`) now narrows `results`/`value` to defined, and
+  `status === 'error'` narrows `error` to defined — the
+  `!task.isDone || task.results === undefined` double-check this README
+  used to show is no longer necessary, though it still compiles. Pure type
+  change: every field name, every runtime value, and the `is*` booleans are
+  exactly what they were.
+- **`useDeferredTask`'s `value` (and `createDeferredTask`'s `.getSnapshot().value`
+  / settled `.value`) is now reliably present once `status` is `'done'`,**
+  even when the generator's `T` allows `undefined` and it genuinely returns
+  it. Previously the key was omitted whenever the returned value happened
+  to be `undefined`, which worked for every plain `!== undefined` check but
+  made the two true discriminated-union branches ("done, returned
+  `undefined`" and "not done yet") indistinguishable by shape — the thing
+  that was blocking the type change above for this one case. Fixed by
+  tracking whether a value was published, not what it was.
+
+### Added
+
+- **`signal`** on `useChunkedTask` and `useDeferredTask` — the `AbortSignal`
+  option `createChunkScheduler`/`createDeferredTask` already had, now on the
+  hooks too, with the same `reason` passthrough: a cancellation caused by
+  the signal is distinguishable from a direct `cancel()` call via the new
+  **`reason`** field on both hooks' return state.
+- **A CycloneDX SBOM** (`sbom.cdx.json`), generated fresh and attached to
+  every GitHub Release from 0.4.0 on. Covers the full tree that fed the
+  build — dev toolchain included — not just the (zero) runtime dependencies
+  that ship in the tarball, so a vulnerable build-time dependency (like the
+  minimatch one fixed in 0.3.0) shows up in it.
+
 ## 0.3.0 — 2026-11-02
 
 Hardening, not new surface: closes the gaps a team running this on real,

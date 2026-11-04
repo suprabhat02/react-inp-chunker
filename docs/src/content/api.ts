@@ -84,6 +84,12 @@ export const CHUNKED_OPTIONS: readonly ApiRow[] = [
     type: '() => void',
     description: 'Called right after each yield resolves and work is about to resume. Pairs with onSlice.',
   },
+  {
+    name: 'signal',
+    type: 'AbortSignal',
+    description:
+      "Aborting it is equivalent to calling cancel(). Its reason, if any, comes through on reason below — memoize it, the same as items, or it restarts the task every render.",
+  },
 ];
 
 const STATUS_ROW: ApiRow = {
@@ -96,7 +102,14 @@ const SHARED_STATE: readonly ApiRow[] = [
   {
     name: 'error',
     type: 'unknown',
-    description: 'What your function threw, when status is error.',
+    description:
+      'What your function threw, when status is error. Narrowing status to \'error\' (an if or switch, not the isError flag) narrows this to defined.',
+  },
+  {
+    name: 'reason',
+    type: 'unknown',
+    description:
+      "The signal option's reason, present only when cancellation came from that signal aborting rather than a direct cancel() call.",
   },
   {
     name: 'isIdle, isProcessing, isPaused, isDone, isCancelled, isError',
@@ -142,7 +155,7 @@ export const CHUNKED_RETURNS: readonly ApiRow[] = [
     name: 'results',
     type: 'readonly R[] | undefined',
     description:
-      'Set when the task ends: every result when done, the ones finished so far when cancelled or failed, an empty array with collectResults: false. undefined until then, and always set in the same render that first reports a finished status.',
+      'Set when the task ends: every result when done, the ones finished so far when cancelled or failed, an empty array with collectResults: false. undefined until then, and always set in the same render that first reports a finished status — narrowing status to \'done\' or \'cancelled\' narrows this to defined, so an explicit undefined check is optional, not required.',
   },
   {
     name: 'skipped',
@@ -171,7 +184,7 @@ export const DEFERRED_ARGS: readonly ApiRow[] = [
     type: 'UseDeferredTaskOptions',
     defaultValue: '{}',
     description:
-      'timeSliceMs (default 5), batchSize (default 1, counted in segments rather than items) and autoStart (default true), as for useChunkedTask. Also onSlice and onYield, with the same production-telemetry contract — segment count in place of item count. No onError: skipping one step of a stateful generator mid-flight has no well-defined meaning.',
+      'timeSliceMs (default 5), batchSize (default 1, counted in segments rather than items), autoStart (default true), onSlice/onYield (segment count in place of item count) and signal, all as for useChunkedTask. No onError: skipping one step of a stateful generator mid-flight has no well-defined meaning.',
   },
 ];
 
@@ -180,7 +193,8 @@ export const DEFERRED_RETURNS: readonly ApiRow[] = [
   {
     name: 'value',
     type: 'T | undefined',
-    description: "The generator's return value, once status is done.",
+    description:
+      "The generator's return value, once status is done — narrowing status to 'done' narrows this to T itself, defined even when T allows undefined as a genuine return value.",
   },
   ...SHARED_STATE,
 ];

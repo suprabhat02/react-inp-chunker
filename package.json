@@ -1,6 +1,6 @@
 {
   "name": "react-inp-chunker",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Headless React/TypeScript primitives that chunk heavy synchronous work and yield to the main thread, so long-running updates never cost you Interaction to Next Paint (INP).",
   "keywords": [
     "react",
@@ -103,10 +103,12 @@
     "lint:package": "publint --strict",
     "types:resolution": "node scripts/check-type-resolution.mjs",
     "types:consumer": "tsc -p consumer/tsconfig.bundler.json && tsc -p consumer/tsconfig.nodenext.json",
-    "test:browser": "npm run build && node tests/browser/yielding.mjs"
+    "test:browser": "npm run build && node tests/browser/yielding.mjs",
+    "sbom": "cyclonedx-npm --output-file sbom.cdx.json"
   },
   "devDependencies": {
     "@arethetypeswrong/core": "^0.18.5",
+    "@cyclonedx/cyclonedx-npm": "6.0.1",
     "@eslint/js": "10.0.1",
     "@size-limit/preset-small-lib": "14.3.0",
     "@testing-library/react": "16.3.3",
@@ -156,6 +158,7 @@
     }
   ],
   "overrides": {
-    "minimatch": "^11.0.1"
+    "minimatch": "^11.0.1",
+    "glob": "^14.0.2"
   }
 }

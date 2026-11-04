@@ -55,17 +55,28 @@ export interface UseChunkedTaskOptions<T, R> {
   readonly onSlice?: (durationMs: number, processed: number) => void;
   /** Called right after each yield resolves and work is about to resume. Pairs with `onSlice`. */
   readonly onYield?: () => void;
+  /**
+   * External cancellation source — aborting it is equivalent to calling
+   * `cancel()`, and its `reason` comes through on `reason` below, so a
+   * cancellation caused by the signal is distinguishable from a direct
+   * `cancel()` call. A new reference restarts the task the same way a new
+   * `items` array does, so memoize it (e.g. from a ref or a parent-owned
+   * `AbortController`) unless you mean to restart on every render.
+   */
+  readonly signal?: AbortSignal;
 }
 
-export interface UseChunkedTaskState<R> {
-  readonly status: ChunkStatus;
+/** Fields every status shares, independent of the `status`/`results`/`error` narrowing below. */
+interface UseChunkedTaskShared {
   readonly processed: number;
   readonly total: number;
-  readonly error: unknown;
-  /** The full results array once the task has settled — `undefined` until then. */
-  readonly results: readonly R[] | undefined;
   /** Items `onError` has skipped so far, growing live as skips happen. Empty when unused. */
   readonly skipped: readonly SkippedChunkItem[];
+  /**
+   * The `signal` option's `reason`, present only when cancellation came
+   * from that signal aborting rather than a direct `cancel()` call.
+   */
+  readonly reason: unknown;
   readonly isIdle: boolean;
   readonly isProcessing: boolean;
   readonly isPaused: boolean;
@@ -78,7 +89,36 @@ export interface UseChunkedTaskState<R> {
   readonly cancel: () => void;
 }
 
-const IDLE_STATUS: ChunkStatus = 'idle';
+/**
+ * Discriminated on `status`. Narrowing to `'done'` or `'cancelled'` narrows
+ * `results` to a defined array, no `=== undefined` check needed alongside
+ * `isDone`; narrowing to `'error'` narrows `error` to defined instead. The
+ * `is*` booleans above remain the simple way to branch when you only care
+ * about one status and don't need the narrowing.
+ */
+export type UseChunkedTaskState<R> = UseChunkedTaskShared &
+  (
+    | {
+        readonly status: Exclude<ChunkStatus, 'done' | 'cancelled' | 'error'>;
+        readonly results: undefined;
+        readonly error: undefined;
+      }
+    | {
+        readonly status: 'done' | 'cancelled';
+        readonly results: readonly R[];
+        readonly error: undefined;
+      }
+    | {
+        readonly status: 'error';
+        readonly results: readonly R[];
+        readonly error: unknown;
+      }
+  );
+
+// Narrowed to the literal, not widened to `ChunkStatus`, so the object
+// literal below satisfies the discriminated `ChunkSnapshot` union on its
+// own merits — no assertion needed for a status this function knows for sure.
+const IDLE_STATUS = 'idle';
 
 /**
  * Chunks a heavy, synchronous per-item computation over `items` so it never
@@ -109,6 +149,7 @@ export function useChunkedTask<T, R>(
     onError,
     onSlice,
     onYield,
+    signal,
   } = options ?? {};
 
   // Stable identity, always runs the latest processItem/onItem passed this
@@ -163,6 +204,7 @@ export function useChunkedTask<T, R>(
       ...(timeSliceMs !== undefined ? { timeSliceMs } : {}),
       ...(batchSize !== undefined ? { batchSize } : {}),
       ...(collectResults !== undefined ? { collectResults } : {}),
+      ...(signal !== undefined ? { signal } : {}),
     });
     controller.replace(scheduler);
     if (autoStart) scheduler.start();
@@ -178,13 +220,16 @@ export function useChunkedTask<T, R>(
     // from the reactive dependency set
     // (that's the whole point of useEffectEvent) rather than omitted by
     // oversight.
-  }, [items, timeSliceMs, batchSize, collectResults, autoStart, controller]);
+  }, [items, timeSliceMs, batchSize, collectResults, autoStart, signal, controller]);
 
   const start = useCallback(() => controller.getCurrent()?.start(), [controller]);
   const pause = useCallback(() => controller.getCurrent()?.pause(), [controller]);
   const resume = useCallback(() => controller.getCurrent()?.resume(), [controller]);
   const cancel = useCallback(() => controller.getCurrent()?.cancel(), [controller]);
 
+  // Built from `snapshot`'s own wide-`status` fields, so — same as the core
+  // engine this wraps — it can't be checked structurally against the
+  // discriminated union above; `snapshot` already carries that invariant.
   return {
     status: snapshot.status,
     processed: snapshot.processed,
@@ -196,6 +241,7 @@ export function useChunkedTask<T, R>(
     // apart.
     results: snapshot.results,
     skipped: snapshot.skipped ?? NO_SKIPPED,
+    reason: snapshot.reason,
     isIdle: snapshot.status === 'idle',
     isProcessing: snapshot.status === 'processing',
     isPaused: snapshot.status === 'paused',
@@ -206,5 +252,5 @@ export function useChunkedTask<T, R>(
     pause,
     resume,
     cancel,
-  };
+  } as UseChunkedTaskState<R>;
 }

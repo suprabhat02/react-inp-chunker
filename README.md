@@ -61,7 +61,7 @@ function ScoredRows({ rows }: { rows: readonly Row[] }) {
 
   if (task.isError) return <p role="alert">Couldn't score the rows.</p>;
 
-  if (!task.isDone || task.results === undefined) {
+  if (task.status !== 'done') {
     return <progress value={task.processed} max={task.total} aria-label="Scoring rows" />;
   }
 
@@ -83,6 +83,11 @@ item. Your component re-renders with progress once per slice, not once per item.
 - `results` is `undefined` until the task settles, and is then set in the same
   render that first reports `done`, `cancelled` or `error` — never a render
   later, so there is nothing to tear under concurrent React.
+- The return type is discriminated on `status`: narrowing it (`task.status ===
+'done'`, or a `switch`) narrows `results`/`error` along with it, so the
+  `=== undefined` check above is a choice, not a requirement — the `is*`
+  booleans don't narrow on their own, since they're separate fields from
+  `status` as far as the type checker is concerned.
 
 Two options exist for work at the extremes, and most code needs neither:
 
@@ -93,11 +98,12 @@ Two options exist for work at the extremes, and most code needs neither:
 
 Three more exist for running this against data you don't fully trust, or in production:
 
-| Option    | Use it when                                                                                                                                                                                                                  |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `onError` | `processItem` can throw on a bad row. Return `'skip'` to drop that item and keep going (it shows up in `skipped`), or `'abort'` to end the task as an error — the default when you omit this entirely.                       |
-| `onSlice` | You want to verify, on your own real traffic, that this task is actually staying under `timeSliceMs`. Called with `(durationMs, processed)` at every yield — and unlike the dev-only warnings below, it ships in production. |
-| `onYield` | Pairs with `onSlice`: called right after each yield resolves and work is about to resume.                                                                                                                                    |
+| Option    | Use it when                                                                                                                                                                                                                                                                                                            |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `onError` | `processItem` can throw on a bad row. Return `'skip'` to drop that item and keep going (it shows up in `skipped`), or `'abort'` to end the task as an error — the default when you omit this entirely.                                                                                                                 |
+| `onSlice` | You want to verify, on your own real traffic, that this task is actually staying under `timeSliceMs`. Called with `(durationMs, processed)` at every yield — and unlike the dev-only warnings below, it ships in production.                                                                                           |
+| `onYield` | Pairs with `onSlice`: called right after each yield resolves and work is about to resume.                                                                                                                                                                                                                              |
+| `signal`  | Something else should be able to cancel this task — a parent component unmounting its own controller, a request timeout. An `AbortSignal` aborting is equivalent to calling `cancel()`, and its `reason` shows up on `task.reason`, distinguishable from a direct `cancel()` call (which leaves `reason` `undefined`). |
 
 ```ts
 const task = useChunkedTask(rows, importRow, {
@@ -135,10 +141,21 @@ function* renderFrames(frameCount: number): DeferredGenerator<number> {
 }
 
 function FrameRenderer({ frameCount }: { frameCount: number }) {
-  const { isDone, value } = useDeferredTask(() => renderFrames(frameCount), [frameCount]);
-  return isDone ? <p>Rendered {value} frames.</p> : <p>Rendering…</p>;
+  const task = useDeferredTask(() => renderFrames(frameCount), [frameCount]);
+  return task.status === 'done' ? (
+    <p>Rendered {task.value} frames.</p>
+  ) : (
+    <p>Rendering…</p>
+  );
 }
 ```
+
+Same options as `useChunkedTask` for `timeSliceMs`, `batchSize`, `autoStart`,
+`onSlice`, `onYield` and `signal` (no `onError`: skipping one step of a
+stateful generator mid-flight has no well-defined meaning the way skipping an
+independent array item does). The return type is discriminated the same way:
+narrowing `status === 'done'` narrows `value` to defined, even when the
+generator's return type itself allows `undefined`.
 
 ### Outside React: `react-inp-chunker/core`
 
@@ -180,8 +197,8 @@ Dropping any of these is a breaking change; [SUPPORT.md](SUPPORT.md) has the
 versioning rules.
 
 **Size**, minified and brotli-compressed, with no dependencies of its own:
-`useChunkedTask` 2.02 kB, `useDeferredTask` 1.81 kB, `createChunkScheduler`
-without React 1.47 kB, everything together 2.59 kB. CI fails if a change pushes
+`useChunkedTask` 2.03 kB, `useDeferredTask` 1.83 kB, `createChunkScheduler`
+without React 1.47 kB, everything together 2.61 kB. CI fails if a change pushes
 any of them over budget.
 
 Bundlers that set the `production` export condition — webpack, Vite, Rspack,
@@ -204,7 +221,10 @@ gh attestation verify "$(npm pack react-inp-chunker --silent)" \
 ```
 
 GitHub Actions are pinned to commit SHAs, CI fails on a known vulnerability at
-any severity, and there are no runtime dependencies to audit.
+any severity, and there are no runtime dependencies to audit. Every
+[release](https://github.com/suprabhat02/react-inp-chunker/releases) also
+carries a CycloneDX SBOM covering the full build-time tree, for feeding into
+your own vulnerability-management tooling.
 
 ## Quality
 

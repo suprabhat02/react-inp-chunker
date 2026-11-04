@@ -39,7 +39,7 @@ describe('createDeferredTask() — happy path', () => {
     expect(result).toEqual({ status: 'done', value: 'done without ever pausing' });
   });
 
-  it('a generator that returns undefined settles done with no `value` key at all', async () => {
+  it('a generator that returns undefined still settles done with a `value` key present', async () => {
     function* voidTask(): DeferredGenerator<undefined> {
       yield;
       return undefined;
@@ -48,7 +48,13 @@ describe('createDeferredTask() — happy path', () => {
     deferred.start();
     const result = await deferred.settled;
     expect(result.status).toBe('done');
-    expect('value' in result).toBe(false);
+    // `value` is present (even though it's `undefined`) because the task
+    // actually settled done — the key's presence is tied to that, not to
+    // whether the returned value happens to be falsy. A generator with a
+    // `T` that allows `undefined` can return it as a real value, and that
+    // must be distinguishable from "hasn't returned yet" (see
+    // `hasSettledValue` in deferred-task.ts).
+    expect('value' in result).toBe(true);
     // getValue() is typed `T | undefined`, and T is `undefined` for this
     // task specifically — TypeScript's VoidLike flag set (which this rule
     // checks against) groups `undefined` in with `void`, so it reads this

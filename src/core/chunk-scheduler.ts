@@ -81,10 +81,12 @@ export interface SkippedChunkItem {
   readonly error: unknown;
 }
 
-export interface ChunkSchedulerResult<R> {
-  readonly status: 'done' | 'cancelled' | 'error';
-  readonly results: readonly R[];
-  readonly error?: unknown;
+/**
+ * Fields every status shares. Split out so the union below only has to spell
+ * out what actually differs per status: whether `results` is guaranteed yet,
+ * and whether `error` is.
+ */
+interface ChunkResultShared {
   /** Items `onError` skipped. Omitted when nothing was skipped. */
   readonly skipped?: readonly SkippedChunkItem[];
   /**
@@ -94,29 +96,57 @@ export interface ChunkSchedulerResult<R> {
   readonly reason?: unknown;
 }
 
-export interface ChunkSnapshot<R = unknown> {
-  readonly status: ChunkStatus;
-  readonly processed: number;
-  readonly total: number;
-  readonly error?: unknown;
-  /**
-   * Present only once the task has settled, and always in the same
-   * snapshot that first reports a terminal status — so a reader can never
-   * observe `status: 'done'` without the results that go with it.
-   */
-  readonly results?: readonly R[];
-  /**
-   * Items `onError` has skipped so far — growing live as skips happen,
-   * unlike `results` above: there's nothing unsafe about reading this
-   * mid-run. Omitted entirely until the first skip.
-   */
-  readonly skipped?: readonly SkippedChunkItem[];
-  /**
-   * The `AbortSignal`'s `reason`, present as soon as that signal aborts —
-   * before the task finishes settling, the same as `error` above.
-   */
-  readonly reason?: unknown;
-}
+/**
+ * Discriminated on `status`: narrowing to `'error'` narrows `error` to
+ * `unknown` (defined), and narrowing to `'done' | 'cancelled'` rules it out
+ * entirely — `results` is a plain array either way, never `undefined`, since
+ * a settled task has always published it by the time anyone can observe
+ * this type.
+ */
+export type ChunkSchedulerResult<R> = ChunkResultShared &
+  (
+    | {
+        readonly status: 'done' | 'cancelled';
+        readonly results: readonly R[];
+        readonly error?: undefined;
+      }
+    | {
+        readonly status: 'error';
+        readonly results: readonly R[];
+        readonly error: unknown;
+      }
+  );
+
+/**
+ * Discriminated on `status`: narrowing to `'done' | 'cancelled' | 'error'`
+ * narrows `results` to a defined array — exactly the statuses `isTerminal()`
+ * recognizes, and exactly when the engine has actually published it. Narrow
+ * to `'error'` specifically to also narrow `error` itself to defined.
+ */
+export type ChunkSnapshot<R = unknown> = ChunkResultShared &
+  (
+    | {
+        readonly status: 'idle' | 'processing' | 'paused';
+        readonly processed: number;
+        readonly total: number;
+        readonly results?: undefined;
+        readonly error?: undefined;
+      }
+    | {
+        readonly status: 'done' | 'cancelled';
+        readonly processed: number;
+        readonly total: number;
+        readonly results: readonly R[];
+        readonly error?: undefined;
+      }
+    | {
+        readonly status: 'error';
+        readonly processed: number;
+        readonly total: number;
+        readonly results: readonly R[];
+        readonly error: unknown;
+      }
+  );
 
 export interface ChunkScheduler<R> {
   start(): void;
@@ -216,7 +246,12 @@ export function createChunkScheduler<T, R>(
   // `snapshotStale` is what marks it as needing a rebuild. Allocating a
   // fresh snapshot per item (as this once did) is pure garbage for a task
   // that only publishes progress at slice boundaries.
-  let snapshot: ChunkSnapshot<R> = { status: machineState.status, processed, total };
+  // `status` here is the wide `ChunkStatus`, not yet one of the three
+  // terminal literals, so this literal can't be checked against the
+  // discriminated union structurally — same invariant-the-type-system-
+  // can't-see situation as `at()` above. True at construction: a fresh
+  // machine starts idle, with no results to have published yet.
+  let snapshot = { status: machineState.status, processed, total } as ChunkSnapshot<R>;
   let snapshotStale = false;
   const listeners = new Set<() => void>();
 
@@ -250,6 +285,12 @@ export function createChunkScheduler<T, R>(
   function getSnapshot(): ChunkSnapshot<R> {
     if (snapshotStale) {
       snapshotStale = false;
+      // Same invariant as the constructor above: `results`/`error` are
+      // only ever populated together with a terminal `status` (see
+      // `publishResults()` and `dispatch()`'s callers), which is what the
+      // discriminated union actually requires — but it's enforced by this
+      // function's own call order, not by anything the type checker can
+      // read off these independent conditionals.
       snapshot = {
         status: machineState.status,
         processed,
@@ -258,7 +299,7 @@ export function createChunkScheduler<T, R>(
         ...(finalResults !== undefined ? { results: finalResults } : {}),
         ...(skipped.length > 0 ? { skipped: skipped.slice() } : {}),
         ...(cancelReason !== undefined ? { reason: cancelReason } : {}),
-      };
+      } as ChunkSnapshot<R>;
     }
     return snapshot;
   }
@@ -309,6 +350,10 @@ export function createChunkScheduler<T, R>(
     published: readonly R[],
     error?: unknown,
   ): void {
+    // `error` is only ever passed for `status === 'error'` (see this
+    // function's two call sites), which is the exact pairing the
+    // discriminated union requires — invisible to the checker because it's
+    // enforced by the caller, not by anything in this object literal.
     settle({
       status,
       results: published,
@@ -317,7 +362,7 @@ export function createChunkScheduler<T, R>(
       ...(status === 'cancelled' && cancelReason !== undefined
         ? { reason: cancelReason }
         : {}),
-    });
+    } as ChunkSchedulerResult<R>);
   }
 
   /**

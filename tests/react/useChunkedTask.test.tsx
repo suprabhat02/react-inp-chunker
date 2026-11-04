@@ -68,6 +68,56 @@ describe('useChunkedTask() — autoStart (default)', () => {
   });
 });
 
+describe('useChunkedTask() — signal', () => {
+  it('cancels the task when the signal aborts, surfacing its reason', async () => {
+    const items = Array.from({ length: 100 }, (_, i) => i);
+    const controller = new AbortController();
+    const { result } = renderHook(() =>
+      useChunkedTask(items, (x: number) => x, {
+        timeSliceMs: 0.0001,
+        signal: controller.signal,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.processed).toBeGreaterThan(0);
+    });
+
+    act(() => {
+      controller.abort('stopped by caller');
+    });
+
+    await waitFor(() => {
+      expect(result.current.isCancelled).toBe(true);
+    });
+    expect(result.current.reason).toBe('stopped by caller');
+  });
+
+  it('reports no reason for a direct cancel() call', async () => {
+    const items = Array.from({ length: 100 }, (_, i) => i);
+    const controller = new AbortController();
+    const { result } = renderHook(() =>
+      useChunkedTask(items, (x: number) => x, {
+        timeSliceMs: 0.0001,
+        signal: controller.signal,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.processed).toBeGreaterThan(0);
+    });
+
+    act(() => {
+      result.current.cancel();
+    });
+
+    await waitFor(() => {
+      expect(result.current.isCancelled).toBe(true);
+    });
+    expect(result.current.reason).toBeUndefined();
+  });
+});
+
 describe('useChunkedTask() — autoStart: false', () => {
   it('stays idle until start() is called explicitly', async () => {
     const items = [1, 2, 3];

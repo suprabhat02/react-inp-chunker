@@ -68,10 +68,8 @@ export interface DeferredTaskOptions<T> {
   readonly onYield?: () => void;
 }
 
-export interface DeferredTaskResult<T> {
-  readonly status: 'done' | 'cancelled' | 'error';
-  readonly value?: T;
-  readonly error?: unknown;
+/** Fields every status shares — just `reason`, since `error` and `value` differ by status. */
+interface DeferredResultShared {
   /**
    * The `AbortSignal`'s `reason`, present only when this cancellation came
    * from that signal aborting rather than a direct `cancel()` call.
@@ -79,21 +77,43 @@ export interface DeferredTaskResult<T> {
   readonly reason?: unknown;
 }
 
-export interface DeferredTaskSnapshot<T = unknown> {
-  readonly status: ChunkStatus;
-  readonly error?: unknown;
-  /**
-   * Present only once the task has settled with `done`, and always in the
-   * same snapshot that first reports it — so a reader can never observe
-   * `status: 'done'` without the value that goes with it.
-   */
-  readonly value?: T;
-  /**
-   * The `AbortSignal`'s `reason`, present as soon as that signal aborts —
-   * before the task finishes settling, the same as `error` above.
-   */
-  readonly reason?: unknown;
-}
+/**
+ * Discriminated on `status`: narrowing to `'done'` narrows `value` to `T`
+ * itself, not `T | undefined` — including when `T` allows `undefined`, a
+ * generator genuinely returning it is still a value, distinct from "no
+ * value yet". Narrowing to `'error'` narrows `error` to defined instead.
+ */
+export type DeferredTaskResult<T> = DeferredResultShared &
+  (
+    | { readonly status: 'done'; readonly value: T; readonly error?: undefined }
+    | {
+        readonly status: 'cancelled';
+        readonly value?: undefined;
+        readonly error?: undefined;
+      }
+    | { readonly status: 'error'; readonly value?: undefined; readonly error: unknown }
+  );
+
+/**
+ * Same discrimination as `DeferredTaskResult`, plus the non-terminal
+ * statuses a live snapshot can still be in, where neither `value` nor
+ * `error` exists yet.
+ */
+export type DeferredTaskSnapshot<T = unknown> = DeferredResultShared &
+  (
+    | {
+        readonly status: 'idle' | 'processing' | 'paused';
+        readonly value?: undefined;
+        readonly error?: undefined;
+      }
+    | { readonly status: 'done'; readonly value: T; readonly error?: undefined }
+    | {
+        readonly status: 'cancelled';
+        readonly value?: undefined;
+        readonly error?: undefined;
+      }
+    | { readonly status: 'error'; readonly value?: undefined; readonly error: unknown }
+  );
 
 export interface DeferredTask<T> {
   start(): void;
@@ -126,6 +146,11 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
   let loopStarted = false;
   let settledFlag = false;
   let settledValue: T | undefined;
+  // Separate from `settledValue !== undefined` below: a generator whose `T`
+  // allows `undefined` can genuinely return it, and that's still a value —
+  // conflating "returned undefined" with "hasn't returned yet" is exactly
+  // the bug this flag exists to avoid.
+  let hasSettledValue = false;
   let cancelReason: unknown;
 
   // Built on demand, and only when something has actually changed.
@@ -133,7 +158,10 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
   // return the *same* reference; a fresh object literal on every call (as
   // this used to be) reads as "changed every render" and sends React into
   // an infinite re-render loop. Mirrors chunk-scheduler.ts exactly.
-  let snapshot: DeferredTaskSnapshot<T> = { status: machineState.status };
+  // Wide `status` at construction time, so this can't be checked
+  // structurally against the discriminated union — true regardless: a
+  // fresh task starts idle, before anything could have published a value.
+  let snapshot = { status: machineState.status } as DeferredTaskSnapshot<T>;
   let snapshotStale = false;
 
   const listeners = new Set<() => void>();
@@ -166,12 +194,15 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
   function getSnapshot(): DeferredTaskSnapshot<T> {
     if (snapshotStale) {
       snapshotStale = false;
+      // Same invariant as the constructor above: `value`/`error` are only
+      // ever populated together with a terminal `status`, enforced by this
+      // function's own call order rather than visible to the checker here.
       snapshot = {
         status: machineState.status,
         ...(machineState.error !== undefined ? { error: machineState.error } : {}),
-        ...(settledValue !== undefined ? { value: settledValue } : {}),
+        ...(hasSettledValue ? { value: settledValue } : {}),
         ...(cancelReason !== undefined ? { reason: cancelReason } : {}),
-      };
+      } as DeferredTaskSnapshot<T>;
     }
     return snapshot;
   }
@@ -207,6 +238,7 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
    */
   function publishValue(resolvedValue: T | undefined): void {
     settledValue = resolvedValue;
+    hasSettledValue = true;
     snapshotStale = true;
   }
 
@@ -216,10 +248,12 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
     error?: unknown,
   ): void {
     if (status === 'done') {
-      settle({
-        status,
-        ...(resolvedValue !== undefined ? { value: resolvedValue } : {}),
-      });
+      // Always include `value`, even when `resolvedValue` is `undefined`:
+      // that's still a real returned value (see `hasSettledValue` above),
+      // and the discriminated union's `'done'` branch requires the key
+      // present — invisible to the checker since `resolvedValue`'s static
+      // type is `T | undefined` regardless of which case this actually is.
+      settle({ status, value: resolvedValue } as DeferredTaskResult<T>);
       return;
     }
     if (status === 'error') {

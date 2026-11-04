@@ -30,13 +30,24 @@ export interface UseDeferredTaskOptions {
   readonly onSlice?: (durationMs: number, segmentsDone: number) => void;
   /** Called right after each yield resolves and work is about to resume. Pairs with `onSlice`. */
   readonly onYield?: () => void;
+  /**
+   * External cancellation source — aborting it is equivalent to calling
+   * `cancel()`, and its `reason` comes through on `reason` below, so a
+   * cancellation caused by the signal is distinguishable from a direct
+   * `cancel()` call. A new reference restarts the task the same way a new
+   * entry in `deps` does, so memoize it unless you mean to restart on
+   * every render.
+   */
+  readonly signal?: AbortSignal;
 }
 
-export interface UseDeferredTaskState<T> {
-  readonly status: ChunkStatus;
-  readonly error: unknown;
-  /** The returned value once the task settles with `done` — `undefined` until then. */
-  readonly value: T | undefined;
+/** Fields every status shares, independent of the `status`/`value`/`error` narrowing below. */
+interface UseDeferredTaskShared {
+  /**
+   * The `signal` option's `reason`, present only when cancellation came
+   * from that signal aborting rather than a direct `cancel()` call.
+   */
+  readonly reason: unknown;
   readonly isIdle: boolean;
   readonly isProcessing: boolean;
   readonly isPaused: boolean;
@@ -49,6 +60,25 @@ export interface UseDeferredTaskState<T> {
   readonly cancel: () => void;
 }
 
+/**
+ * Discriminated on `status`. Narrowing to `'done'` narrows `value` to `T`
+ * itself — no `=== undefined` check needed alongside `isDone`, even when
+ * `T` allows `undefined` as a genuine return value. Narrowing to `'error'`
+ * narrows `error` to defined instead.
+ */
+export type UseDeferredTaskState<T> = UseDeferredTaskShared &
+  (
+    | {
+        readonly status: Exclude<ChunkStatus, 'done' | 'error'>;
+        readonly value: undefined;
+        readonly error: undefined;
+      }
+    | { readonly status: 'done'; readonly value: T; readonly error: undefined }
+    | { readonly status: 'error'; readonly value: undefined; readonly error: unknown }
+  );
+
+// Narrowed to the literal, not widened to `ChunkStatus`, so this satisfies
+// the discriminated `DeferredTaskSnapshot` union on its own merits.
 const IDLE_SNAPSHOT: DeferredTaskSnapshot<never> = { status: 'idle' };
 
 /**
@@ -67,7 +97,14 @@ export function useDeferredTask<T>(
   deps: readonly unknown[],
   options?: UseDeferredTaskOptions,
 ): UseDeferredTaskState<T> {
-  const { timeSliceMs, batchSize, autoStart = true, onSlice, onYield } = options ?? {};
+  const {
+    timeSliceMs,
+    batchSize,
+    autoStart = true,
+    onSlice,
+    onYield,
+    signal,
+  } = options ?? {};
 
   // Stable identity, always runs the latest `task` passed this render —
   // see useChunkedTask.ts for why this is useEffectEvent rather than a ref
@@ -96,6 +133,7 @@ export function useDeferredTask<T>(
         onYield: stableOnYield,
         ...(timeSliceMs !== undefined ? { timeSliceMs } : {}),
         ...(batchSize !== undefined ? { batchSize } : {}),
+        ...(signal !== undefined ? { signal } : {}),
       });
       controller.replace(deferredTask);
       if (autoStart) deferredTask.start();
@@ -112,7 +150,7 @@ export function useDeferredTask<T>(
     // caller-supplied array, the same pattern (and the same reason it can't
     // be statically verified) as useMemo/useEffect's own deps parameter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [...deps, timeSliceMs, batchSize, autoStart, controller],
+    [...deps, timeSliceMs, batchSize, autoStart, signal, controller],
   );
 
   const start = useCallback(() => controller.getCurrent()?.start(), [controller]);
@@ -120,6 +158,8 @@ export function useDeferredTask<T>(
   const resume = useCallback(() => controller.getCurrent()?.resume(), [controller]);
   const cancel = useCallback(() => controller.getCurrent()?.cancel(), [controller]);
 
+  // Built from `snapshot`'s own wide-`status` fields — see the identical
+  // note in useChunkedTask.ts; `snapshot` already carries the invariant.
   return {
     status: snapshot.status,
     error: snapshot.error,
@@ -127,6 +167,7 @@ export function useDeferredTask<T>(
     // announces `done`, so a concurrent render can never see one without
     // the other. See useChunkedTask.ts.
     value: snapshot.value,
+    reason: snapshot.reason,
     isIdle: snapshot.status === 'idle',
     isProcessing: snapshot.status === 'processing',
     isPaused: snapshot.status === 'paused',
@@ -137,5 +178,5 @@ export function useDeferredTask<T>(
     pause,
     resume,
     cancel,
-  };
+  } as UseDeferredTaskState<T>;
 }

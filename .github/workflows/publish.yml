@@ -16,7 +16,7 @@ on:
     types: [published]
 
 permissions:
-  contents: read
+  contents: write # read for checkout, write to attach the SBOM to the release
   id-token: write # required for OIDC trusted publishing + provenance
 
 jobs:
@@ -38,3 +38,15 @@ jobs:
         run: npm run verify
       - name: Publish (OIDC — no token)
         run: npm publish --provenance --access public
+      - name: Generate CycloneDX SBOM
+        # Describes the exact tree that fed this build — dev toolchain
+        # included, not just the (zero) runtime dependencies that ship in
+        # the tarball. That's deliberate: a known-vulnerable dev dependency
+        # (see the minimatch fix in the 0.3.0 changelog entry) is a
+        # supply-chain risk to the build, not the published package, and an
+        # SBOM that only covered runtime deps would miss it entirely.
+        run: npx cyclonedx-npm --output-file sbom.cdx.json
+      - name: Attach SBOM to the GitHub Release
+        run: gh release upload "${{ github.event.release.tag_name }}" sbom.cdx.json --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
