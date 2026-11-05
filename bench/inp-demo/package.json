@@ -1,0 +1,28 @@
+{
+  "name": "react-inp-chunker-inp-demo",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Benchmark: the same heavy React update done five ways, measured with the Event Timing API. Installs the published react-inp-chunker from npm.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "measure": "node scripts/measure.mjs",
+    "report": "node scripts/report.mjs",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-inp-chunker": "^0.4.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "playwright": "^1.64.1",
+    "vite": "^8.3.4",
+    "typescript": "^6.0.3"
+  }
+}

@@ -22,7 +22,9 @@ export default defineConfig(
     // docs/ is the documentation site: a standalone app with its own
     // package.json, tsconfig, and linter (oxlint), not part of the library's
     // own quality pipeline. `npm run lint` inside docs/ covers it.
-    ignores: ['dist/', 'coverage/', 'node_modules/', 'docs/'],
+    // bench/inp-demo/ is likewise a standalone benchmark app with its own
+    // package.json; `npm run typecheck` inside it covers it.
+    ignores: ['dist/', 'coverage/', 'node_modules/', 'docs/', 'bench/inp-demo/'],
   },
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,

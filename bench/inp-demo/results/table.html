@@ -1,0 +1,16 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#15181e; --muted:#5b6372; --line:#e2e5eb; --accent:#e2481f; --ok:#2f9e63; --bad:#9aa1ad; --neutral:#9aa1ad; }
+  * { box-sizing:border-box } body { margin:0; padding:32px; background:var(--bg); color:var(--text); font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; }
+  .card { width:1200px; padding:32px 36px; border:1px solid var(--line); border-radius:18px; background:var(--card); }
+  h2 { margin:0 0 6px; font-size:28px; letter-spacing:-0.02em } .sub { margin:0 0 22px; color:var(--muted); font-size:16px; line-height:1.5 }
+  svg { display:block; width:100%; height:auto } .label { font-size:17px; fill:var(--text) } .strong { font-weight:700 }
+  .value { font: 600 16px ui-monospace,monospace; fill:var(--text) } .muted { fill:var(--muted); font-weight:400 }
+  .p75 { stroke:var(--text); stroke-width:2 } .threshold { stroke:var(--muted); stroke-width:1.5; stroke-dasharray:5 5 }
+  .setup { margin:18px 0 0; color:var(--muted); font-size:13px; line-height:1.5 }
+  table { width:100%; border-collapse:collapse; font-size:16px } th,td { padding:12px 10px; border-bottom:1px solid var(--line); text-align:right }
+  th:first-child,td:first-child { text-align:left } th { color:var(--muted); font-weight:600; font-size:14px }
+  td { font-family:ui-monospace,monospace } td:first-child { font-family:inherit; font-weight:600 } tr.hl td { background:#fdebe5 }
+</style></head><body><section class="card"><h2>Same work, five ways: results</h2>
+  <p class="sub">Median values in ms. "→ frame" is the time from the click to the next animation frame, when its response can first paint.</p>
+  <table><thead><tr><th>Variant</th><th>Run click → frame</th><th>2nd click → frame</th><th>2nd click p75</th><th>Longest frame</th><th>Total time</th></tr></thead>
+  <tbody><tr><td>Synchronous</td><td>339</td><td>299</td><td>367</td><td>339</td><td>339</td></tr><tr><td>setTimeout chunks</td><td>8</td><td>12</td><td>17</td><td>65</td><td>714</td></tr><tr><td>startTransition</td><td>7</td><td>330</td><td>420</td><td>371</td><td>403</td></tr><tr class="hl"><td>react-inp-chunker</td><td>18</td><td>12</td><td>16</td><td>127</td><td>534</td></tr><tr><td>scheduler.yield</td><td>7</td><td>13</td><td>17</td><td>121</td><td>660</td></tr></tbody></table><p class="setup">Chromium 141.0.7390.37 (headless) · Intel(R) Xeon(R) Processor @ 2.80GHz (2 cores) · CPU throttling 4x · 20,000 rows × 30 hash rounds · median of 30 runs per variant · 2026-11-05</p></section></body></html>

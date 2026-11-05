@@ -1,0 +1,35 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#15181e; --muted:#5b6372; --line:#e2e5eb; --accent:#e2481f; --ok:#2f9e63; --bad:#9aa1ad; --neutral:#9aa1ad; }
+  * { box-sizing:border-box } body { margin:0; padding:32px; background:var(--bg); color:var(--text); font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; }
+  .card { width:1200px; padding:32px 36px; border:1px solid var(--line); border-radius:18px; background:var(--card); }
+  h2 { margin:0 0 6px; font-size:28px; letter-spacing:-0.02em } .sub { margin:0 0 22px; color:var(--muted); font-size:16px; line-height:1.5 }
+  svg { display:block; width:100%; height:auto } .label { font-size:17px; fill:var(--text) } .strong { font-weight:700 }
+  .value { font: 600 16px ui-monospace,monospace; fill:var(--text) } .muted { fill:var(--muted); font-weight:400 }
+  .p75 { stroke:var(--text); stroke-width:2 } .threshold { stroke:var(--muted); stroke-width:1.5; stroke-dasharray:5 5 }
+  .setup { margin:18px 0 0; color:var(--muted); font-size:13px; line-height:1.5 }
+  table { width:100%; border-collapse:collapse; font-size:16px } th,td { padding:12px 10px; border-bottom:1px solid var(--line); text-align:right }
+  th:first-child,td:first-child { text-align:left } th { color:var(--muted); font-weight:600; font-size:14px }
+  td { font-family:ui-monospace,monospace } td:first-child { font-family:inherit; font-weight:600 } tr.hl td { background:#fdebe5 }
+</style></head><body><section class="card"><h2>The trade-off: total time until results appear</h2><p class="sub">Yielding keeps the page responsive but the same work finishes later. Bar = median, tick = p75.</p>
+    <svg viewBox="0 0 1200 400" role="img" aria-label="The trade-off: total time until results appear">
+        <text x="234" y="70" text-anchor="end" class="label">Synchronous</text>
+        <rect x="250" y="52" width="298.11815478279823" height="28" rx="6" fill="var(--neutral)" />
+        <line x1="608.243194261719" x2="608.243194261719" y1="48" y2="84" class="p75" />
+        <text x="618.243194261719" y="71" class="value">339 ms<tspan class="muted"> · p75 407</tspan></text>
+        <text x="234" y="134" text-anchor="end" class="label">setTimeout chunks</text>
+        <rect x="250" y="116" width="627.8162498331393" height="28" rx="6" fill="var(--neutral)" />
+        <line x1="1018.5185185185185" x2="1018.5185185185185" y1="112" y2="148" class="p75" />
+        <text x="1028.5185185185185" y="135" class="value">714 ms<tspan class="muted"> · p75 874</tspan></text>
+        <text x="234" y="198" text-anchor="end" class="label">startTransition</text>
+        <rect x="250" y="180" width="354.9004707793623" height="28" rx="6" fill="var(--neutral)" />
+        <line x1="705.6220072874225" x2="705.6220072874225" y1="176" y2="212" class="p75" />
+        <text x="715.6220072874225" y="199" class="value">403 ms<tspan class="muted"> · p75 518</tspan></text>
+        <text x="234" y="262" text-anchor="end" class="label strong">react-inp-chunker</text>
+        <rect x="250" y="244" width="470.0484981060795" height="28" rx="6" fill="var(--accent)" />
+        <line x1="853.5815045859378" x2="853.5815045859378" y1="240" y2="276" class="p75" />
+        <text x="863.5815045859378" y="263" class="value">534 ms<tspan class="muted"> · p75 686</tspan></text>
+        <text x="234" y="326" text-anchor="end" class="label">scheduler.yield</text>
+        <rect x="250" y="308" width="580.182440209287" height="28" rx="6" fill="var(--neutral)" />
+        <line x1="882.3465198156877" x2="882.3465198156877" y1="304" y2="340" class="p75" />
+        <text x="892.3465198156877" y="327" class="value">660 ms<tspan class="muted"> · p75 719</tspan></text></svg>
+    <p class="setup">Chromium 141.0.7390.37 (headless) · Intel(R) Xeon(R) Processor @ 2.80GHz (2 cores) · CPU throttling 4x · 20,000 rows × 30 hash rounds · median of 30 runs per variant · 2026-11-05</p></section></body></html>

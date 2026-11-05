@@ -7,3 +7,6 @@ package-lock.json
 # package.json and lint setup, not part of the library's own quality
 # pipeline. `npm run lint` inside docs/ covers it.
 docs
+
+# Generated benchmark output (numbers, charts, screenshots).
+bench/inp-demo/results

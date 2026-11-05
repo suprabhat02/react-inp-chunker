@@ -1,0 +1,1527 @@
+{
+  "environment": {
+    "date": "2026-11-05T09:30:35.539Z",
+    "browser": "Chromium 141.0.7390.37 (headless)",
+    "os": "Linux 6.18.44-fc-v236 (x64)",
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz",
+    "cores": 2,
+    "cpuThrottling": "4x",
+    "rows": 20000,
+    "hashRoundsPerRow": 30,
+    "runsPerVariant": 30,
+    "warmupRuns": 3,
+    "pingDelayMs": 50
+  },
+  "results": [
+    {
+      "id": "sync",
+      "label": "Synchronous",
+      "runs": 30,
+      "runClick": {
+        "median": 338.9000000001397,
+        "p75": 407.2500000001746,
+        "max": 544.1000000000931
+      },
+      "pingClick": {
+        "median": 299.05000000004657,
+        "p75": 367.20000000012806,
+        "max": 503.70000000018626
+      },
+      "pingInputDelay": {
+        "median": 294.60000000009313,
+        "p75": 360.45000000001164,
+        "max": 500.60000000009313
+      },
+      "longestFrame": {
+        "median": 339.04999999993015,
+        "p75": 408.20000000012806,
+        "max": 547.3999999999069
+      },
+      "total": {
+        "median": 338.9000000001397,
+        "p75": 407.2500000001746,
+        "max": 544.1000000000931
+      },
+      "samples": [
+        {
+          "runClick": 464.20000000018626,
+          "pingClick": 428.70000000018626,
+          "pingInputDelay": 421.10000000009313,
+          "runEventTiming": 472,
+          "pingEventTiming": 472,
+          "totalMs": 464.20000000018626,
+          "longestFrameMs": 458.60000000009313
+        },
+        {
+          "runClick": 512,
+          "pingClick": 473.0999999998603,
+          "pingInputDelay": 466.69999999995343,
+          "runEventTiming": 512,
+          "pingEventTiming": 472,
+          "totalMs": 514.7000000001863,
+          "longestFrameMs": 501.30000000004657
+        },
+        {
+          "runClick": 325.5,
+          "pingClick": 285.70000000018626,
+          "pingInputDelay": 280.9000000001397,
+          "runEventTiming": 328,
+          "pingEventTiming": 288,
+          "totalMs": 325.5,
+          "longestFrameMs": 328.69999999995343
+        },
+        {
+          "runClick": 378.60000000009313,
+          "pingClick": 350.10000000009313,
+          "pingInputDelay": 339.30000000004657,
+          "runEventTiming": 392,
+          "pingEventTiming": 392,
+          "totalMs": 378.60000000009313,
+          "longestFrameMs": 377
+        },
+        {
+          "runClick": 316.4000000001397,
+          "pingClick": 277.20000000018626,
+          "pingInputDelay": 272,
+          "runEventTiming": 328,
+          "pingEventTiming": 328,
+          "totalMs": 316.4000000001397,
+          "longestFrameMs": 320
+        },
+        {
+          "runClick": 289,
+          "pingClick": 251.10000000009313,
+          "pingInputDelay": 244.5,
+          "runEventTiming": 296,
+          "pingEventTiming": 296,
+          "totalMs": 289,
+          "longestFrameMs": 291.19999999995343
+        },
+        {
+          "runClick": 377.20000000018626,
+          "pingClick": 331.9000000001397,
+          "pingInputDelay": 330.9000000001397,
+          "runEventTiming": 384,
+          "pingEventTiming": 384,
+          "totalMs": 377.20000000018626,
+          "longestFrameMs": 377.4000000001397
+        },
+        {
+          "runClick": 281.5,
+          "pingClick": 252.39999999990687,
+          "pingInputDelay": 238.19999999995343,
+          "runEventTiming": 288,
+          "pingEventTiming": 288,
+          "totalMs": 281.5,
+          "longestFrameMs": 281.19999999995343
+        },
+        {
+          "runClick": 413.70000000018626,
+          "pingClick": 372.9000000001397,
+          "pingInputDelay": 367,
+          "runEventTiming": 424,
+          "pingEventTiming": 424,
+          "totalMs": 413.70000000018626,
+          "longestFrameMs": 415.4000000001397
+        },
+        {
+          "runClick": 362.30000000004657,
+          "pingClick": 328.10000000009313,
+          "pingInputDelay": 314.60000000009313,
+          "runEventTiming": 360,
+          "pingEventTiming": 328,
+          "totalMs": 362.30000000004657,
+          "longestFrameMs": 363.69999999995343
+        },
+        {
+          "runClick": 289.60000000009313,
+          "pingClick": 249,
+          "pingInputDelay": 243.70000000018626,
+          "runEventTiming": 288,
+          "pingEventTiming": 256,
+          "totalMs": 289.60000000009313,
+          "longestFrameMs": 289.89999999990687
+        },
+        {
+          "runClick": 314.80000000004657,
+          "pingClick": 278.70000000018626,
+          "pingInputDelay": 268.80000000004657,
+          "runEventTiming": 312,
+          "pingEventTiming": 280,
+          "totalMs": 314.80000000004657,
+          "longestFrameMs": 311.5
+        },
+        {
+          "runClick": 339.4000000001397,
+          "pingClick": 295.9000000001397,
+          "pingInputDelay": 293,
+          "runEventTiming": 344,
+          "pingEventTiming": 304,
+          "totalMs": 339.4000000001397,
+          "longestFrameMs": 337.5
+        },
+        {
+          "runClick": 513,
+          "pingClick": 479,
+          "pingInputDelay": 464.30000000004657,
+          "runEventTiming": 520,
+          "pingEventTiming": 520,
+          "totalMs": 513.1000000000931,
+          "longestFrameMs": 515.1999999999534
+        },
+        {
+          "runClick": 338.4000000001397,
+          "pingClick": 299,
+          "pingInputDelay": 294.30000000004657,
+          "runEventTiming": 352,
+          "pingEventTiming": 352,
+          "totalMs": 338.4000000001397,
+          "longestFrameMs": 336.80000000004657
+        },
+        {
+          "runClick": 387.9000000001397,
+          "pingClick": 345.10000000009313,
+          "pingInputDelay": 340.80000000004657,
+          "runEventTiming": 392,
+          "pingEventTiming": 352,
+          "totalMs": 387.9000000001397,
+          "longestFrameMs": 386.60000000009313
+        },
+        {
+          "runClick": 443,
+          "pingClick": 401.9000000001397,
+          "pingInputDelay": 396.9000000001397,
+          "runEventTiming": 456,
+          "pingEventTiming": 456,
+          "totalMs": 443,
+          "longestFrameMs": 439.39999999990687
+        },
+        {
+          "runClick": 252.70000000018626,
+          "pingClick": 216.4000000001397,
+          "pingInputDelay": 204.70000000018626,
+          "runEventTiming": 256,
+          "pingEventTiming": 216,
+          "totalMs": 252.70000000018626,
+          "longestFrameMs": 239.19999999995343
+        },
+        {
+          "runClick": 246,
+          "pingClick": 208.5,
+          "pingInputDelay": 202.9000000001397,
+          "runEventTiming": 256,
+          "pingEventTiming": 256,
+          "totalMs": 246,
+          "longestFrameMs": 250.39999999990687
+        },
+        {
+          "runClick": 436.30000000004657,
+          "pingClick": 392.10000000009313,
+          "pingInputDelay": 389,
+          "runEventTiming": 448,
+          "pingEventTiming": 448,
+          "totalMs": 436.30000000004657,
+          "longestFrameMs": 429.5
+        },
+        {
+          "runClick": 338.30000000004657,
+          "pingClick": 299.10000000009313,
+          "pingInputDelay": 294.9000000001397,
+          "runEventTiming": 352,
+          "pingEventTiming": 352,
+          "totalMs": 338.30000000004657,
+          "longestFrameMs": 340.5999999998603
+        },
+        {
+          "runClick": 360.9000000001397,
+          "pingClick": 327.70000000018626,
+          "pingInputDelay": 313.60000000009313,
+          "runEventTiming": 360,
+          "pingEventTiming": 328,
+          "totalMs": 360.9000000001397,
+          "longestFrameMs": 357
+        },
+        {
+          "runClick": 380.20000000018626,
+          "pingClick": 340,
+          "pingInputDelay": 334.39999999990687,
+          "runEventTiming": 392,
+          "pingEventTiming": 392,
+          "totalMs": 380.20000000018626,
+          "longestFrameMs": 381.60000000009313
+        },
+        {
+          "runClick": 293.70000000018626,
+          "pingClick": 255.4000000001397,
+          "pingInputDelay": 248.70000000018626,
+          "runEventTiming": 304,
+          "pingEventTiming": 304,
+          "totalMs": 293.70000000018626,
+          "longestFrameMs": 296.30000000004657
+        },
+        {
+          "runClick": 294.4000000001397,
+          "pingClick": 255,
+          "pingInputDelay": 246,
+          "runEventTiming": 304,
+          "pingEventTiming": 304,
+          "totalMs": 294.4000000001397,
+          "longestFrameMs": 292.10000000009313
+        },
+        {
+          "runClick": 272.4000000001397,
+          "pingClick": 229.9000000001397,
+          "pingInputDelay": 225.4000000001397,
+          "runEventTiming": 280,
+          "pingEventTiming": 280,
+          "totalMs": 272.4000000001397,
+          "longestFrameMs": 271.69999999995343
+        },
+        {
+          "runClick": 544.1000000000931,
+          "pingClick": 503.70000000018626,
+          "pingInputDelay": 500.60000000009313,
+          "runEventTiming": 552,
+          "pingEventTiming": 552,
+          "totalMs": 544.1000000000931,
+          "longestFrameMs": 547.3999999999069
+        },
+        {
+          "runClick": 422.60000000009313,
+          "pingClick": 383.10000000009313,
+          "pingInputDelay": 376.4000000001397,
+          "runEventTiming": 432,
+          "pingEventTiming": 432,
+          "totalMs": 422.60000000009313,
+          "longestFrameMs": 425.19999999995343
+        },
+        {
+          "runClick": 312.4000000001397,
+          "pingClick": 275.9000000001397,
+          "pingInputDelay": 267.9000000001397,
+          "runEventTiming": 320,
+          "pingEventTiming": 320,
+          "totalMs": 312.4000000001397,
+          "longestFrameMs": 312.69999999995343
+        },
+        {
+          "runClick": 265.70000000018626,
+          "pingClick": 226,
+          "pingInputDelay": 221.30000000004657,
+          "runEventTiming": 272,
+          "pingEventTiming": 272,
+          "totalMs": 265.80000000004657,
+          "longestFrameMs": 267.5
+        }
+      ]
+    },
+    {
+      "id": "setTimeout",
+      "label": "setTimeout chunks",
+      "runs": 30,
+      "runClick": {
+        "median": 8.200000000186265,
+        "p75": 10.425000000104774,
+        "max": 15.600000000093132
+      },
+      "pingClick": {
+        "median": 12.350000000093132,
+        "p75": 17.10000000015134,
+        "max": 20.5
+      },
+      "pingInputDelay": {
+        "median": 5.550000000046566,
+        "p75": 8.300000000104774,
+        "max": 14.200000000186265
+      },
+      "longestFrame": {
+        "median": 65.30000000004657,
+        "p75": 78.45000000001164,
+        "max": 122.19999999995343
+      },
+      "total": {
+        "median": 713.7000000001863,
+        "p75": 873.6500000001397,
+        "max": 1197
+      },
+      "samples": [
+        {
+          "runClick": 14.700000000186265,
+          "pingClick": 16.100000000093132,
+          "pingInputDelay": 5.800000000046566,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 1058.1000000000931,
+          "longestFrameMs": 115.39999999990687
+        },
+        {
+          "runClick": 11.400000000139698,
+          "pingClick": 18.600000000093132,
+          "pingInputDelay": 11.100000000093132,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 1049.6000000000931,
+          "longestFrameMs": 65.60000000009313
+        },
+        {
+          "runClick": 15.600000000093132,
+          "pingClick": 17.4000000001397,
+          "pingInputDelay": 14.200000000186265,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 802.1000000000931,
+          "longestFrameMs": 59.89999999990687
+        },
+        {
+          "runClick": 13.5,
+          "pingClick": 20.5,
+          "pingInputDelay": 12.5,
+          "runEventTiming": 24,
+          "pingEventTiming": 32,
+          "totalMs": 746.1000000000931,
+          "longestFrameMs": 78.5
+        },
+        {
+          "runClick": 11.5,
+          "pingClick": 14.400000000139698,
+          "pingInputDelay": 1.9000000001396984,
+          "runEventTiming": 16,
+          "pingEventTiming": 24,
+          "totalMs": 727.7000000001863,
+          "longestFrameMs": 61.799999999813735
+        },
+        {
+          "runClick": 10.600000000093132,
+          "pingClick": 18.700000000186265,
+          "pingInputDelay": 6.800000000046566,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 619.2000000001863,
+          "longestFrameMs": 46.0999999998603
+        },
+        {
+          "runClick": 4.300000000046566,
+          "pingClick": 3.4000000001396984,
+          "pingInputDelay": 0.30000000004656613,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 789.9000000001397,
+          "longestFrameMs": 61.199999999953434
+        },
+        {
+          "runClick": 8.200000000186265,
+          "pingClick": 13.900000000139698,
+          "pingInputDelay": 8.400000000139698,
+          "runEventTiming": 32,
+          "pingEventTiming": 32,
+          "totalMs": 906.5,
+          "longestFrameMs": 53.699999999953434
+        },
+        {
+          "runClick": 6.7000000001862645,
+          "pingClick": 16.4000000001397,
+          "pingInputDelay": 8.600000000093132,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 623.5,
+          "longestFrameMs": 95.39999999990687
+        },
+        {
+          "runClick": 1.7000000001862645,
+          "pingClick": 4.300000000046566,
+          "pingInputDelay": 0,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 587.4000000001397,
+          "longestFrameMs": 46.199999999953434
+        },
+        {
+          "runClick": 8,
+          "pingClick": 17.200000000186265,
+          "pingInputDelay": 11.200000000186265,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 917.2000000001863,
+          "longestFrameMs": 78.10000000009313
+        },
+        {
+          "runClick": 7.400000000139698,
+          "pingClick": 18.9000000001397,
+          "pingInputDelay": 13.5,
+          "runEventTiming": 32,
+          "pingEventTiming": 32,
+          "totalMs": 739.6000000000931,
+          "longestFrameMs": 63.89999999990687
+        },
+        {
+          "runClick": 8.700000000186265,
+          "pingClick": 13.5,
+          "pingInputDelay": 8,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 942.8000000000466,
+          "longestFrameMs": 103.39999999990687
+        },
+        {
+          "runClick": 9.100000000093132,
+          "pingClick": 5.2000000001862645,
+          "pingInputDelay": 0.5,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 609.1000000000931,
+          "longestFrameMs": 65
+        },
+        {
+          "runClick": 1.5,
+          "pingClick": 18.300000000046566,
+          "pingInputDelay": 5.600000000093132,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 472.80000000004657,
+          "longestFrameMs": 78.30000000004657
+        },
+        {
+          "runClick": 5.300000000046566,
+          "pingClick": 6.600000000093132,
+          "pingInputDelay": 0.30000000004656613,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 866,
+          "longestFrameMs": 77.70000000018626
+        },
+        {
+          "runClick": 4.900000000139698,
+          "pingClick": 9.300000000046566,
+          "pingInputDelay": 3.1000000000931323,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 640,
+          "longestFrameMs": 122.19999999995343
+        },
+        {
+          "runClick": 3.9000000001396984,
+          "pingClick": 20.200000000186265,
+          "pingInputDelay": 10.100000000093132,
+          "runEventTiming": 16,
+          "pingEventTiming": 24,
+          "totalMs": 687.5,
+          "longestFrameMs": 69.80000000004657
+        },
+        {
+          "runClick": 9.900000000139698,
+          "pingClick": 12.800000000046566,
+          "pingInputDelay": 6.5,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 1197,
+          "longestFrameMs": 121.89999999990687
+        },
+        {
+          "runClick": 0.9000000001396984,
+          "pingClick": 0.8000000000465661,
+          "pingInputDelay": -2.7999999998137355,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 950,
+          "longestFrameMs": 113.4000000001397
+        },
+        {
+          "runClick": 14.700000000186265,
+          "pingClick": 16.800000000046566,
+          "pingInputDelay": 2.9000000001396984,
+          "runEventTiming": 16,
+          "pingEventTiming": 24,
+          "totalMs": 699.7000000001863,
+          "longestFrameMs": 75.60000000009313
+        },
+        {
+          "runClick": 5.7000000001862645,
+          "pingClick": 5.2000000001862645,
+          "pingInputDelay": 0.6000000000931323,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 671.9000000001397,
+          "longestFrameMs": 50
+        },
+        {
+          "runClick": 11.300000000046566,
+          "pingClick": 11.5,
+          "pingInputDelay": 6.300000000046566,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 530.3000000000466,
+          "longestFrameMs": 73.60000000009313
+        },
+        {
+          "runClick": 7.300000000046566,
+          "pingClick": 9.400000000139698,
+          "pingInputDelay": 6.900000000139698,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 607.2000000001863,
+          "longestFrameMs": 62.5
+        },
+        {
+          "runClick": 6,
+          "pingClick": 5.7000000001862645,
+          "pingInputDelay": 1.8000000000465661,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 523.3000000000466,
+          "longestFrameMs": 57.300000000046566
+        },
+        {
+          "runClick": 8.200000000186265,
+          "pingClick": 11.900000000139698,
+          "pingInputDelay": 5.5,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 592.8000000000466,
+          "longestFrameMs": 105.5
+        },
+        {
+          "runClick": 6,
+          "pingClick": 6.300000000046566,
+          "pingInputDelay": 3.3999999999068677,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 558,
+          "longestFrameMs": 52.800000000046566
+        },
+        {
+          "runClick": 8.5,
+          "pingClick": 8.200000000186265,
+          "pingInputDelay": 3.1000000000931323,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 876.2000000001863,
+          "longestFrameMs": 61.0999999998603
+        },
+        {
+          "runClick": 9,
+          "pingClick": 7,
+          "pingInputDelay": -0.5999999998603016,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 660.8000000000466,
+          "longestFrameMs": 60.199999999953434
+        },
+        {
+          "runClick": 9.200000000186265,
+          "pingClick": 8.900000000139698,
+          "pingInputDelay": 2.9000000001396984,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 860.7000000001863,
+          "longestFrameMs": 46
+        }
+      ]
+    },
+    {
+      "id": "startTransition",
+      "label": "startTransition",
+      "runs": 30,
+      "runClick": {
+        "median": 6.800000000046566,
+        "p75": 8.675000000104774,
+        "max": 14.800000000046566
+      },
+      "pingClick": {
+        "median": 329.5000000001164,
+        "p75": 419.7500000000582,
+        "max": 511.5
+      },
+      "pingInputDelay": {
+        "median": 324.20000000006985,
+        "p75": 414.0250000000233,
+        "max": 506.80000000004657
+      },
+      "longestFrame": {
+        "median": 371,
+        "p75": 465.5250000000233,
+        "max": 546.5
+      },
+      "total": {
+        "median": 403.45000000018626,
+        "p75": 517.9500000000698,
+        "max": 1054.6000000000931
+      },
+      "samples": [
+        {
+          "runClick": 7.900000000139698,
+          "pingClick": 438.5,
+          "pingInputDelay": 431.80000000004657,
+          "runEventTiming": 440,
+          "pingEventTiming": 440,
+          "totalMs": 488.5,
+          "longestFrameMs": 470.39999999990687
+        },
+        {
+          "runClick": 6.800000000046566,
+          "pingClick": 312.30000000004657,
+          "pingInputDelay": 308.9000000001397,
+          "runEventTiming": 312,
+          "pingEventTiming": 312,
+          "totalMs": 362.30000000004657,
+          "longestFrameMs": 344.5
+        },
+        {
+          "runClick": 1.9000000001396984,
+          "pingClick": 216.70000000018626,
+          "pingInputDelay": 212.20000000018626,
+          "runEventTiming": 224,
+          "pingEventTiming": 224,
+          "totalMs": 592.3000000000466,
+          "longestFrameMs": 302.60000000009313
+        },
+        {
+          "runClick": 3.5,
+          "pingClick": 387.9000000001397,
+          "pingInputDelay": 384.10000000009313,
+          "runEventTiming": 392,
+          "pingEventTiming": 392,
+          "totalMs": 736.2000000001863,
+          "longestFrameMs": 428
+        },
+        {
+          "runClick": 5.100000000093132,
+          "pingClick": 220,
+          "pingInputDelay": 214.5,
+          "runEventTiming": 216,
+          "pingEventTiming": 224,
+          "totalMs": 270,
+          "longestFrameMs": 249.69999999995343
+        },
+        {
+          "runClick": 6.5,
+          "pingClick": 220.20000000018626,
+          "pingInputDelay": 217.4000000001397,
+          "runEventTiming": 224,
+          "pingEventTiming": 232,
+          "totalMs": 270.30000000004657,
+          "longestFrameMs": 253.4000000001397
+        },
+        {
+          "runClick": 11.900000000139698,
+          "pingClick": 511.5,
+          "pingInputDelay": 506.80000000004657,
+          "runEventTiming": 512,
+          "pingEventTiming": 520,
+          "totalMs": 562.5,
+          "longestFrameMs": 538
+        },
+        {
+          "runClick": 12.5,
+          "pingClick": 315.4000000001397,
+          "pingInputDelay": 310.20000000018626,
+          "runEventTiming": 312,
+          "pingEventTiming": 320,
+          "totalMs": 366.4000000001397,
+          "longestFrameMs": 339.70000000018626
+        },
+        {
+          "runClick": 14.800000000046566,
+          "pingClick": 466.80000000004657,
+          "pingInputDelay": 461.10000000009313,
+          "runEventTiming": 464,
+          "pingEventTiming": 472,
+          "totalMs": 518.8000000000466,
+          "longestFrameMs": 489.0999999998603
+        },
+        {
+          "runClick": 5.600000000093132,
+          "pingClick": 229.9000000001397,
+          "pingInputDelay": 227,
+          "runEventTiming": 232,
+          "pingEventTiming": 232,
+          "totalMs": 281,
+          "longestFrameMs": 265.39999999990687
+        },
+        {
+          "runClick": 9.700000000186265,
+          "pingClick": 321.20000000018626,
+          "pingInputDelay": 316,
+          "runEventTiming": 320,
+          "pingEventTiming": 328,
+          "totalMs": 371.20000000018626,
+          "longestFrameMs": 347.89999999990687
+        },
+        {
+          "runClick": 2.4000000001396984,
+          "pingClick": 278.10000000009313,
+          "pingInputDelay": 275.20000000018626,
+          "runEventTiming": 280,
+          "pingEventTiming": 280,
+          "totalMs": 328.10000000009313,
+          "longestFrameMs": 315.19999999995343
+        },
+        {
+          "runClick": 8,
+          "pingClick": 237.60000000009313,
+          "pingInputDelay": 231.9000000001397,
+          "runEventTiming": 232,
+          "pingEventTiming": 240,
+          "totalMs": 272.70000000018626,
+          "longestFrameMs": 263.30000000004657
+        },
+        {
+          "runClick": 10.400000000139698,
+          "pingClick": 302.20000000018626,
+          "pingInputDelay": 295.9000000001397,
+          "runEventTiming": 296,
+          "pingEventTiming": 304,
+          "totalMs": 352.20000000018626,
+          "longestFrameMs": 324.80000000004657
+        },
+        {
+          "runClick": 3.4000000001396984,
+          "pingClick": 348.70000000018626,
+          "pingInputDelay": 340.9000000001397,
+          "runEventTiming": 344,
+          "pingEventTiming": 352,
+          "totalMs": 399.70000000018626,
+          "longestFrameMs": 379.30000000004657
+        },
+        {
+          "runClick": 2.6000000000931323,
+          "pingClick": 509.70000000018626,
+          "pingInputDelay": 504.30000000004657,
+          "runEventTiming": 512,
+          "pingEventTiming": 512,
+          "totalMs": 1054.6000000000931,
+          "longestFrameMs": 546.5
+        },
+        {
+          "runClick": 6.800000000046566,
+          "pingClick": 465.4000000001397,
+          "pingInputDelay": 461.5,
+          "runEventTiming": 464,
+          "pingEventTiming": 472,
+          "totalMs": 515.4000000001397,
+          "longestFrameMs": 494.39999999990687
+        },
+        {
+          "runClick": 3.4000000001396984,
+          "pingClick": 275.10000000009313,
+          "pingInputDelay": 271.9000000001397,
+          "runEventTiming": 280,
+          "pingEventTiming": 280,
+          "totalMs": 578.8000000000466,
+          "longestFrameMs": 315.89999999990687
+        },
+        {
+          "runClick": 11.400000000139698,
+          "pingClick": 277.70000000018626,
+          "pingInputDelay": 276.10000000009313,
+          "runEventTiming": 280,
+          "pingEventTiming": 288,
+          "totalMs": 328.70000000018626,
+          "longestFrameMs": 307
+        },
+        {
+          "runClick": 7.100000000093132,
+          "pingClick": 254.30000000004657,
+          "pingInputDelay": 252.4000000001397,
+          "runEventTiming": 256,
+          "pingEventTiming": 256,
+          "totalMs": 304.30000000004657,
+          "longestFrameMs": 286.60000000009313
+        },
+        {
+          "runClick": 3.4000000001396984,
+          "pingClick": 426.30000000004657,
+          "pingInputDelay": 421,
+          "runEventTiming": 424,
+          "pingEventTiming": 432,
+          "totalMs": 476.30000000004657,
+          "longestFrameMs": 460.19999999995343
+        },
+        {
+          "runClick": 3.1000000000931323,
+          "pingClick": 337.80000000004657,
+          "pingInputDelay": 332.4000000001397,
+          "runEventTiming": 328,
+          "pingEventTiming": 344,
+          "totalMs": 388.80000000004657,
+          "longestFrameMs": 368.80000000004657
+        },
+        {
+          "runClick": 5.400000000139698,
+          "pingClick": 387,
+          "pingInputDelay": 383.80000000004657,
+          "runEventTiming": 392,
+          "pingEventTiming": 392,
+          "totalMs": 438,
+          "longestFrameMs": 424.69999999995343
+        },
+        {
+          "runClick": 6.5,
+          "pingClick": 444.10000000009313,
+          "pingInputDelay": 439.5,
+          "runEventTiming": 440,
+          "pingEventTiming": 448,
+          "totalMs": 495.10000000009313,
+          "longestFrameMs": 474
+        },
+        {
+          "runClick": 8.900000000139698,
+          "pingClick": 277.9000000001397,
+          "pingInputDelay": 272.80000000004657,
+          "runEventTiming": 280,
+          "pingEventTiming": 280,
+          "totalMs": 828.3000000000466,
+          "longestFrameMs": 486
+        },
+        {
+          "runClick": 7.300000000046566,
+          "pingClick": 342.30000000004657,
+          "pingInputDelay": 336.4000000001397,
+          "runEventTiming": 344,
+          "pingEventTiming": 344,
+          "totalMs": 392.30000000004657,
+          "longestFrameMs": 373.19999999995343
+        },
+        {
+          "runClick": -0.7999999998137355,
+          "pingClick": 239.4000000001397,
+          "pingInputDelay": 236.5,
+          "runEventTiming": 240,
+          "pingEventTiming": 248,
+          "totalMs": 290.4000000001397,
+          "longestFrameMs": 279.5
+        },
+        {
+          "runClick": 9,
+          "pingClick": 400.10000000009313,
+          "pingInputDelay": 393.10000000009313,
+          "runEventTiming": 392,
+          "pingEventTiming": 400,
+          "totalMs": 451.10000000009313,
+          "longestFrameMs": 425.5
+        },
+        {
+          "runClick": 7.800000000046566,
+          "pingClick": 355.10000000009313,
+          "pingInputDelay": 351.9000000001397,
+          "runEventTiming": 360,
+          "pingEventTiming": 360,
+          "totalMs": 407.20000000018626,
+          "longestFrameMs": 389.80000000004657
+        },
+        {
+          "runClick": 7.600000000093132,
+          "pingClick": 436.4000000001397,
+          "pingInputDelay": 429.80000000004657,
+          "runEventTiming": 432,
+          "pingEventTiming": 440,
+          "totalMs": 919.9000000001397,
+          "longestFrameMs": 467.30000000004657
+        }
+      ]
+    },
+    {
+      "id": "chunker",
+      "label": "react-inp-chunker",
+      "runs": 30,
+      "runClick": {
+        "median": 18.300000000046566,
+        "p75": 21.300000000046566,
+        "max": 26.9000000001397
+      },
+      "pingClick": {
+        "median": 11.550000000162981,
+        "p75": 16.17500000016298,
+        "max": 36.10000000009313
+      },
+      "pingInputDelay": {
+        "median": 5.450000000069849,
+        "p75": 8.375000000116415,
+        "max": 26.600000000093132
+      },
+      "longestFrame": {
+        "median": 126.54999999993015,
+        "p75": 147.20000000001164,
+        "max": 232.89999999990687
+      },
+      "total": {
+        "median": 534.3500000000931,
+        "p75": 686.1500000001397,
+        "max": 1026
+      },
+      "samples": [
+        {
+          "runClick": 26.9000000001397,
+          "pingClick": 16.200000000186265,
+          "pingInputDelay": 11.100000000093132,
+          "runEventTiming": 16,
+          "pingEventTiming": 24,
+          "totalMs": 956.4000000001397,
+          "longestFrameMs": 146.89999999990687
+        },
+        {
+          "runClick": 15.200000000186265,
+          "pingClick": 11.900000000139698,
+          "pingInputDelay": 5,
+          "runEventTiming": 0,
+          "pingEventTiming": 16,
+          "totalMs": 834.6000000000931,
+          "longestFrameMs": 232.89999999990687
+        },
+        {
+          "runClick": 21.300000000046566,
+          "pingClick": 5.7000000001862645,
+          "pingInputDelay": 1.5,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 1026,
+          "longestFrameMs": 126.19999999995343
+        },
+        {
+          "runClick": 18.5,
+          "pingClick": 15.5,
+          "pingInputDelay": 6.600000000093132,
+          "runEventTiming": 0,
+          "pingEventTiming": 16,
+          "totalMs": 536.7000000001863,
+          "longestFrameMs": 111.89999999990687
+        },
+        {
+          "runClick": 10.700000000186265,
+          "pingClick": 11,
+          "pingInputDelay": 5.400000000139698,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 488.5,
+          "longestFrameMs": 140.5
+        },
+        {
+          "runClick": 18.100000000093132,
+          "pingClick": 6.800000000046566,
+          "pingInputDelay": 4.5,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 499.10000000009313,
+          "longestFrameMs": 141.5
+        },
+        {
+          "runClick": 26.600000000093132,
+          "pingClick": 16.800000000046566,
+          "pingInputDelay": 11.099999999860302,
+          "runEventTiming": 16,
+          "pingEventTiming": 24,
+          "totalMs": 703.3000000000466,
+          "longestFrameMs": 117
+        },
+        {
+          "runClick": 15.699999999953434,
+          "pingClick": 9.600000000093132,
+          "pingInputDelay": 4.600000000093132,
+          "runEventTiming": 0,
+          "pingEventTiming": 16,
+          "totalMs": 487.30000000004657,
+          "longestFrameMs": 130.80000000004657
+        },
+        {
+          "runClick": 17.800000000046566,
+          "pingClick": 6.800000000046566,
+          "pingInputDelay": 2.5,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 456.60000000009313,
+          "longestFrameMs": 106.80000000004657
+        },
+        {
+          "runClick": 19.200000000186265,
+          "pingClick": 11.200000000186265,
+          "pingInputDelay": 9.800000000046566,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 853.2000000001863,
+          "longestFrameMs": 158.70000000018626
+        },
+        {
+          "runClick": 21.300000000046566,
+          "pingClick": 1.1000000000931323,
+          "pingInputDelay": -1.5999999998603016,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 533.2000000001863,
+          "longestFrameMs": 175.30000000004657
+        },
+        {
+          "runClick": 25.5,
+          "pingClick": 14,
+          "pingInputDelay": 8.400000000139698,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 633.7000000001863,
+          "longestFrameMs": 164.10000000009313
+        },
+        {
+          "runClick": 23.700000000186265,
+          "pingClick": 14,
+          "pingInputDelay": 8,
+          "runEventTiming": 32,
+          "pingEventTiming": 32,
+          "totalMs": 624.9000000001397,
+          "longestFrameMs": 146.4000000001397
+        },
+        {
+          "runClick": 15.600000000093132,
+          "pingClick": 0.5,
+          "pingInputDelay": -1.9000000001396984,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 439,
+          "longestFrameMs": 107.69999999995343
+        },
+        {
+          "runClick": 12.100000000093132,
+          "pingClick": 8.300000000046566,
+          "pingInputDelay": 5.5,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 491.5,
+          "longestFrameMs": 126.89999999990687
+        },
+        {
+          "runClick": 19.600000000093132,
+          "pingClick": 20,
+          "pingInputDelay": 5.400000000139698,
+          "runEventTiming": 16,
+          "pingEventTiming": 24,
+          "totalMs": 501.30000000004657,
+          "longestFrameMs": 147.30000000004657
+        },
+        {
+          "runClick": 17.5,
+          "pingClick": 36.10000000009313,
+          "pingInputDelay": 26.600000000093132,
+          "runEventTiming": 32,
+          "pingEventTiming": 40,
+          "totalMs": 800.4000000001397,
+          "longestFrameMs": 114.60000000009313
+        },
+        {
+          "runClick": 17.9000000001397,
+          "pingClick": 18.4000000001397,
+          "pingInputDelay": 6.600000000093132,
+          "runEventTiming": 0,
+          "pingEventTiming": 24,
+          "totalMs": 531.7000000001863,
+          "longestFrameMs": 177
+        },
+        {
+          "runClick": 19,
+          "pingClick": 18.100000000093132,
+          "pingInputDelay": 8.900000000139698,
+          "runEventTiming": 16,
+          "pingEventTiming": 24,
+          "totalMs": 584,
+          "longestFrameMs": 123
+        },
+        {
+          "runClick": 22.100000000093132,
+          "pingClick": 19.700000000186265,
+          "pingInputDelay": 10.200000000186265,
+          "runEventTiming": 0,
+          "pingEventTiming": 24,
+          "totalMs": 458.5,
+          "longestFrameMs": 108.79999999981374
+        },
+        {
+          "runClick": 13.300000000046566,
+          "pingClick": 20.100000000093132,
+          "pingInputDelay": 14.900000000139698,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 450.60000000009313,
+          "longestFrameMs": 106.9000000001397
+        },
+        {
+          "runClick": 11.700000000186265,
+          "pingClick": 1,
+          "pingInputDelay": -1.2999999998137355,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 446.10000000009313,
+          "longestFrameMs": 110.10000000009313
+        },
+        {
+          "runClick": 15.900000000139698,
+          "pingClick": 13.900000000139698,
+          "pingInputDelay": 7.5,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 575.5,
+          "longestFrameMs": 110.80000000004657
+        },
+        {
+          "runClick": 19.5,
+          "pingClick": 10.200000000186265,
+          "pingInputDelay": 7.100000000093132,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 847.2000000001863,
+          "longestFrameMs": 147.30000000004657
+        },
+        {
+          "runClick": 20.600000000093132,
+          "pingClick": 16.100000000093132,
+          "pingInputDelay": 8.300000000046566,
+          "runEventTiming": 0,
+          "pingEventTiming": 16,
+          "totalMs": 671,
+          "longestFrameMs": 110.89999999990687
+        },
+        {
+          "runClick": 21.9000000001397,
+          "pingClick": 6.800000000046566,
+          "pingInputDelay": 3.2000000001862645,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 530.3000000000466,
+          "longestFrameMs": 176.20000000018626
+        },
+        {
+          "runClick": 17.9000000001397,
+          "pingClick": 7.2000000001862645,
+          "pingInputDelay": 2.6000000000931323,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 691.2000000001863,
+          "longestFrameMs": 129.5
+        },
+        {
+          "runClick": 14,
+          "pingClick": 11.100000000093132,
+          "pingInputDelay": 3.6000000000931323,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 477.20000000018626,
+          "longestFrameMs": 114.10000000009313
+        },
+        {
+          "runClick": 24.4000000001397,
+          "pingClick": 0.30000000004656613,
+          "pingInputDelay": -2.7999999998137355,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 535.5,
+          "longestFrameMs": 108.5999999998603
+        },
+        {
+          "runClick": 16.700000000186265,
+          "pingClick": 14.200000000186265,
+          "pingInputDelay": 1.7000000001862645,
+          "runEventTiming": 0,
+          "pingEventTiming": 24,
+          "totalMs": 528.4000000001397,
+          "longestFrameMs": 109.89999999990687
+        }
+      ]
+    },
+    {
+      "id": "yield",
+      "label": "scheduler.yield",
+      "runs": 30,
+      "runClick": {
+        "median": 6.7000000001862645,
+        "p75": 8.77500000008149,
+        "max": 15.700000000186265
+      },
+      "pingClick": {
+        "median": 13.100000000093132,
+        "p75": 16.57500000006985,
+        "max": 24.600000000093132
+      },
+      "pingInputDelay": {
+        "median": 3.2500000001164153,
+        "p75": 7.2000000001862645,
+        "max": 14.200000000186265
+      },
+      "longestFrame": {
+        "median": 121.15000000002328,
+        "p75": 156.20000000006985,
+        "max": 213
+      },
+      "total": {
+        "median": 659.5500000000466,
+        "p75": 718.8500000000349,
+        "max": 797.3000000000466
+      },
+      "samples": [
+        {
+          "runClick": 7.2000000001862645,
+          "pingClick": 8.900000000139698,
+          "pingInputDelay": 0.20000000018626451,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 438.20000000018626,
+          "longestFrameMs": 176.5
+        },
+        {
+          "runClick": 6.7000000001862645,
+          "pingClick": 20.0999999998603,
+          "pingInputDelay": 11,
+          "runEventTiming": 16,
+          "pingEventTiming": 24,
+          "totalMs": 569,
+          "longestFrameMs": 106
+        },
+        {
+          "runClick": 4,
+          "pingClick": 4.2000000001862645,
+          "pingInputDelay": -0.09999999986030161,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 587.9000000001397,
+          "longestFrameMs": 123.5
+        },
+        {
+          "runClick": 7,
+          "pingClick": 4.900000000139698,
+          "pingInputDelay": 3.5,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 648.7000000001863,
+          "longestFrameMs": 104.9000000001397
+        },
+        {
+          "runClick": -2.2999999998137355,
+          "pingClick": 10.600000000093132,
+          "pingInputDelay": 5.7000000001862645,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 594.5,
+          "longestFrameMs": 121.5
+        },
+        {
+          "runClick": 6.400000000139698,
+          "pingClick": 13.600000000093132,
+          "pingInputDelay": 6.5,
+          "runEventTiming": 32,
+          "pingEventTiming": 32,
+          "totalMs": 797.3000000000466,
+          "longestFrameMs": 213
+        },
+        {
+          "runClick": 4.600000000093132,
+          "pingClick": 16.600000000093132,
+          "pingInputDelay": 5.7000000001862645,
+          "runEventTiming": 16,
+          "pingEventTiming": 24,
+          "totalMs": 655.6000000000931,
+          "longestFrameMs": 106.5999999998603
+        },
+        {
+          "runClick": 12.200000000186265,
+          "pingClick": 20.5,
+          "pingInputDelay": 10.200000000186265,
+          "runEventTiming": 32,
+          "pingEventTiming": 32,
+          "totalMs": 747,
+          "longestFrameMs": 178.9000000001397
+        },
+        {
+          "runClick": 5.900000000139698,
+          "pingClick": 16.700000000186265,
+          "pingInputDelay": 3.300000000046566,
+          "runEventTiming": 16,
+          "pingEventTiming": 24,
+          "totalMs": 751.6000000000931,
+          "longestFrameMs": 105.5
+        },
+        {
+          "runClick": 8,
+          "pingClick": 16.100000000093132,
+          "pingInputDelay": 2.2000000001862645,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 753.8000000000466,
+          "longestFrameMs": 192.5
+        },
+        {
+          "runClick": 11.5,
+          "pingClick": 15.400000000139698,
+          "pingInputDelay": 7.2000000001862645,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 674.9000000001397,
+          "longestFrameMs": 114.69999999995343
+        },
+        {
+          "runClick": 6.7000000001862645,
+          "pingClick": 12.600000000093132,
+          "pingInputDelay": 11.300000000046566,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 793,
+          "longestFrameMs": 208.10000000009313
+        },
+        {
+          "runClick": 5.800000000046566,
+          "pingClick": 7.100000000093132,
+          "pingInputDelay": 0.10000000009313226,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 627.4000000001397,
+          "longestFrameMs": 106.19999999995343
+        },
+        {
+          "runClick": 7.2000000001862645,
+          "pingClick": 16.5,
+          "pingInputDelay": 9,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 749.5,
+          "longestFrameMs": 169
+        },
+        {
+          "runClick": 15.700000000186265,
+          "pingClick": 5.900000000139698,
+          "pingInputDelay": 2.300000000046566,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 568.9000000001397,
+          "longestFrameMs": 109.19999999995343
+        },
+        {
+          "runClick": 8.800000000046566,
+          "pingClick": 6.400000000139698,
+          "pingInputDelay": 1,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 690.6000000000931,
+          "longestFrameMs": 120.80000000004657
+        },
+        {
+          "runClick": 4.2000000001862645,
+          "pingClick": 5.7000000001862645,
+          "pingInputDelay": 0.8000000000465661,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 622.9000000001397,
+          "longestFrameMs": 155.9000000001397
+        },
+        {
+          "runClick": 8.700000000186265,
+          "pingClick": 4.2000000001862645,
+          "pingInputDelay": -1.0999999998603016,
+          "runEventTiming": 32,
+          "pingEventTiming": 32,
+          "totalMs": 589.1000000000931,
+          "longestFrameMs": 124.80000000004657
+        },
+        {
+          "runClick": 10.5,
+          "pingClick": 3.800000000046566,
+          "pingInputDelay": -0.39999999990686774,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 560.8000000000466,
+          "longestFrameMs": 104.89999999990687
+        },
+        {
+          "runClick": 5.100000000093132,
+          "pingClick": 18.5,
+          "pingInputDelay": 2.5,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 710.9000000001397,
+          "longestFrameMs": 152.69999999995343
+        },
+        {
+          "runClick": 4.5,
+          "pingClick": 6.900000000139698,
+          "pingInputDelay": 1.7000000001862645,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 653.9000000001397,
+          "longestFrameMs": 108.19999999995343
+        },
+        {
+          "runClick": 13.900000000139698,
+          "pingClick": 17.300000000046566,
+          "pingInputDelay": 10.800000000046566,
+          "runEventTiming": 16,
+          "pingEventTiming": 24,
+          "totalMs": 683,
+          "longestFrameMs": 105.89999999990687
+        },
+        {
+          "runClick": 3.2000000001862645,
+          "pingClick": 7.7000000001862645,
+          "pingInputDelay": -0.2999999998137355,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 701.5,
+          "longestFrameMs": 136.39999999990687
+        },
+        {
+          "runClick": 5.7000000001862645,
+          "pingClick": 16.4000000001397,
+          "pingInputDelay": 7.5,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 502.20000000018626,
+          "longestFrameMs": 105
+        },
+        {
+          "runClick": 6.600000000093132,
+          "pingClick": 7.900000000139698,
+          "pingInputDelay": -2.2999999998137355,
+          "runEventTiming": 16,
+          "pingEventTiming": 16,
+          "totalMs": 547.9000000001397,
+          "longestFrameMs": 103.19999999995343
+        },
+        {
+          "runClick": 6.400000000139698,
+          "pingClick": 8.600000000093132,
+          "pingInputDelay": 1.8000000000465661,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 663.5,
+          "longestFrameMs": 104.39999999990687
+        },
+        {
+          "runClick": 11.399999999906868,
+          "pingClick": 24.600000000093132,
+          "pingInputDelay": 14.200000000186265,
+          "runEventTiming": 16,
+          "pingEventTiming": 32,
+          "totalMs": 694.5999999998603,
+          "longestFrameMs": 115.30000000004657
+        },
+        {
+          "runClick": 8.300000000046566,
+          "pingClick": 14.300000000046566,
+          "pingInputDelay": 7.2000000001862645,
+          "runEventTiming": 16,
+          "pingEventTiming": 24,
+          "totalMs": 761.2000000001863,
+          "longestFrameMs": 185.39999999990687
+        },
+        {
+          "runClick": 5.400000000139698,
+          "pingClick": 20.4000000001397,
+          "pingInputDelay": 6.900000000139698,
+          "runEventTiming": 24,
+          "pingEventTiming": 24,
+          "totalMs": 721.5,
+          "longestFrameMs": 156.30000000004657
+        },
+        {
+          "runClick": 13.100000000093132,
+          "pingClick": 13.900000000139698,
+          "pingInputDelay": 3.2000000001862645,
+          "runEventTiming": 16,
+          "pingEventTiming": 24,
+          "totalMs": 596.1000000000931,
+          "longestFrameMs": 140.10000000009313
+        }
+      ]
+    }
+  ]
+}
