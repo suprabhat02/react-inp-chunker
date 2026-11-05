@@ -1,0 +1,36 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#15181e; --muted:#5b6372; --line:#e2e5eb; --accent:#e2481f; --ok:#2f9e63; --bad:#9aa1ad; --neutral:#9aa1ad; }
+  * { box-sizing:border-box } body { margin:0; padding:32px; background:var(--bg); color:var(--text); font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; }
+  .card { width:1200px; padding:32px 36px; border:1px solid var(--line); border-radius:18px; background:var(--card); }
+  h2 { margin:0 0 6px; font-size:28px; letter-spacing:-0.02em } .sub { margin:0 0 22px; color:var(--muted); font-size:16px; line-height:1.5 }
+  svg { display:block; width:100%; height:auto } .label { font-size:17px; fill:var(--text) } .strong { font-weight:700 }
+  .value { font: 600 16px ui-monospace,monospace; fill:var(--text) } .muted { fill:var(--muted); font-weight:400 }
+  .p75 { stroke:var(--text); stroke-width:2 } .threshold { stroke:var(--muted); stroke-width:1.5; stroke-dasharray:5 5 }
+  .setup { margin:18px 0 0; color:var(--muted); font-size:13px; line-height:1.5 }
+  table { width:100%; border-collapse:collapse; font-size:16px } th,td { padding:12px 10px; border-bottom:1px solid var(--line); text-align:right }
+  th:first-child,td:first-child { text-align:left } th { color:var(--muted); font-weight:600; font-size:14px }
+  td { font-family:ui-monospace,monospace } td:first-child { font-family:inherit; font-weight:600 } tr.hl td { background:#fdebe5 }
+</style></head><body><section class="card"><h2>A click while the work runs: time to next frame</h2><p class="sub">The second click lands 50 ms after the first, while 20,000 rows are being scored. Bar = median, tick = p75. Green = under 200 ms, grey = over.</p>
+    <svg viewBox="0 0 1200 400" role="img" aria-label="A click while the work runs: time to next frame"><line x1="616.1791630820308" x2="616.1791630820308" y1="36" y2="370" class="threshold" />
+         <text x="622.1791630820308" y="30" class="muted">200 ms: &quot;good&quot; INP limit</text>
+        <text x="234" y="70" text-anchor="end" class="label">Synchronous</text>
+        <rect x="250" y="52" width="547.5293935984917" height="28" rx="6" fill="var(--bad)" />
+        <line x1="922.3049434188428" x2="922.3049434188428" y1="48" y2="84" class="p75" />
+        <text x="932.3049434188428" y="71" class="value">299 ms<tspan class="muted"> · p75 367</tspan></text>
+        <text x="234" y="134" text-anchor="end" class="label">setTimeout chunks</text>
+        <rect x="250" y="116" width="22.611563320485914" height="28" rx="6" fill="var(--ok)" />
+        <line x1="281.3083184437907" x2="281.3083184437907" y1="112" y2="148" class="p75" />
+        <text x="291.3083184437907" y="135" class="value">12 ms<tspan class="muted"> · p75 17</tspan></text>
+        <text x="234" y="198" text-anchor="end" class="label">startTransition</text>
+        <rect x="250" y="180" width="603.2801711778586" height="28" rx="6" fill="var(--bad)" />
+        <line x1="1018.5185185185185" x2="1018.5185185185185" y1="176" y2="212" class="p75" />
+        <text x="1028.5185185185185" y="199" class="value">330 ms<tspan class="muted"> · p75 420</tspan></text>
+        <text x="234" y="262" text-anchor="end" class="label strong">react-inp-chunker</text>
+        <rect x="250" y="244" width="21.14684666828566" height="28" rx="6" fill="var(--accent)" />
+        <line x1="279.61473981455765" x2="279.61473981455765" y1="240" y2="276" class="p75" />
+        <text x="289.61473981455765" y="263" class="value">12 ms<tspan class="muted"> · p75 16</tspan></text>
+        <text x="234" y="326" text-anchor="end" class="label">scheduler.yield</text>
+        <rect x="250" y="308" width="23.98473518204355" height="28" rx="6" fill="var(--ok)" />
+        <line x1="280.34709814055117" x2="280.34709814055117" y1="304" y2="340" class="p75" />
+        <text x="290.34709814055117" y="327" class="value">13 ms<tspan class="muted"> · p75 17</tspan></text></svg>
+    <p class="setup">Chromium 141.0.7390.37 (headless) · Intel(R) Xeon(R) Processor @ 2.80GHz (2 cores) · CPU throttling 4x · 20,000 rows × 30 hash rounds · median of 30 runs per variant · 2026-11-05</p></section></body></html>
