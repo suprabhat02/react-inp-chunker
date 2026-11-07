@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { DeferredGenerator } from '../../src/core/deferred-task.js';
 import { createDeferredTask } from '../../src/core/deferred-task.js';
@@ -634,5 +634,159 @@ describe('createDeferredTask() — paused before the first segment', () => {
     deferred.resume();
     const result = await deferred.settled;
     expect(result).toEqual({ status: 'done', value: 3 });
+  });
+});
+
+describe('createDeferredTask() — defects found in review', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps a loop for a task paused from inside the START notification, so resume() finishes it', async () => {
+    const deferred = createDeferredTask({ task: () => countingTask(3, []) });
+    let pausedOnce = false;
+    deferred.subscribe(() => {
+      if (!pausedOnce && deferred.getSnapshot().status === 'processing') {
+        pausedOnce = true;
+        deferred.pause();
+      }
+    });
+    deferred.start();
+    expect(deferred.getSnapshot().status).toBe('paused');
+    await sleep(10);
+    deferred.resume();
+    await expect(deferred.settled).resolves.toEqual({ status: 'done', value: 3 });
+  });
+
+  it('runs no segment when the task factory cancels its own task', async () => {
+    const progress: number[] = [];
+    const holder: { task?: ReturnType<typeof createDeferredTask<number>> } = {};
+    holder.task = createDeferredTask({
+      task: () => {
+        holder.task?.cancel();
+        return countingTask(3, progress);
+      },
+    });
+    holder.task.start();
+    const result = await holder.task.settled;
+    expect(result.status).toBe('cancelled');
+    expect(progress).toEqual([]);
+  });
+
+  it('runs no segment until resumed when the task factory pauses its own task', async () => {
+    const progress: number[] = [];
+    const holder: { task?: ReturnType<typeof createDeferredTask<number>> } = {};
+    holder.task = createDeferredTask({
+      task: () => {
+        holder.task?.pause();
+        return countingTask(3, progress);
+      },
+    });
+    holder.task.start();
+    await sleep(10);
+    expect(holder.task.getSnapshot().status).toBe('paused');
+    expect(progress).toEqual([]);
+    holder.task.resume();
+    await expect(holder.task.settled).resolves.toEqual({ status: 'done', value: 3 });
+    expect(progress).toEqual([0, 1, 2]);
+  });
+
+  it("runs the generator's finally, and no notification or onYield, after a cancel that lands during a yield", async () => {
+    const onYield = vi.fn();
+    let cleanedUp = false;
+    function* endless(): DeferredGenerator<number> {
+      try {
+        for (;;) yield;
+      } finally {
+        cleanedUp = true;
+      }
+    }
+    const holder: { task?: ReturnType<typeof createDeferredTask<number>> } = {};
+    holder.task = createDeferredTask({
+      task: endless,
+      timeSliceMs: 0.0001,
+      onSlice: () => {
+        queueMicrotask(() => {
+          holder.task?.cancel();
+        });
+      },
+      onYield,
+    });
+    holder.task.start();
+    const result = await holder.task.settled;
+    expect(result.status).toBe('cancelled');
+    expect(onYield).not.toHaveBeenCalled();
+    expect(cleanedUp).toBe(true);
+  });
+
+  it("settles as cancelled — what its snapshot says — when the generator's finally throws on cancel, reporting the error", async () => {
+    const reported: unknown[] = [];
+    vi.stubGlobal('reportError', (error: unknown) => reported.push(error));
+    const boom = new Error('cleanup failed');
+    function* badCleanup(): DeferredGenerator<number> {
+      try {
+        for (;;) yield;
+      } finally {
+        // eslint-disable-next-line no-unsafe-finally -- the defect under test: a finally that throws
+        throw boom;
+      }
+    }
+    const deferred = createDeferredTask({ task: badCleanup, timeSliceMs: 0.0001 });
+    deferred.start();
+    await sleep(5);
+    deferred.cancel();
+    const result = await deferred.settled;
+    expect(result.status).toBe('cancelled');
+    expect(deferred.getSnapshot().status).toBe('cancelled');
+    expect(reported).toEqual([boom]);
+  });
+
+  it('yields after resume() before running the next segment', async () => {
+    const progress: number[] = [];
+    const holder: { task?: ReturnType<typeof createDeferredTask<number>> } = {};
+    holder.task = createDeferredTask({
+      task: () => countingTask(5, progress),
+      timeSliceMs: 0.0001,
+      onSlice: (_ms: number, segmentsDone: number) => {
+        if (segmentsDone === 1) holder.task?.pause();
+      },
+    });
+    holder.task.start();
+    await sleep(10);
+    expect(holder.task.getSnapshot().status).toBe('paused');
+    const atPause = progress.length;
+
+    holder.task.resume();
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+    expect(progress.length).toBe(atPause);
+
+    await expect(holder.task.settled).resolves.toEqual({ status: 'done', value: 5 });
+  });
+});
+
+describe('createDeferredTask() — the abort reason thrown after cancelling', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('settles as cancelled and does not report it, when a segment throws signal.throwIfAborted()', async () => {
+    const reported: unknown[] = [];
+    vi.stubGlobal('reportError', (error: unknown) => reported.push(error));
+    const controller = new AbortController();
+    // eslint-disable-next-line require-yield -- the first segment aborts and throws before any yield
+    function* abortsItself(): DeferredGenerator<number> {
+      controller.abort(new Error('no longer needed'));
+      controller.signal.throwIfAborted();
+      return 1;
+    }
+    const deferred = createDeferredTask({
+      task: abortsItself,
+      signal: controller.signal,
+    });
+    deferred.start();
+    const result = await deferred.settled;
+    expect(result.status).toBe('cancelled');
+    expect(result.reason).toEqual(new Error('no longer needed'));
+    expect(reported).toEqual([]);
   });
 });

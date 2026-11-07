@@ -14,9 +14,9 @@ export interface UseDeferredTaskOptions {
   /** Max ms of uninterrupted work before yielding. Default 5. */
   readonly timeSliceMs?: number;
   /**
-   * The longest the task may keep the page from painting, in ms. Default
-   * 33; `Infinity` turns it off. See the identical option on
-   * `useChunkedTask`. Changing it sets up a new run.
+   * How long, in ms, the task may keep resuming ahead of rendering. Default
+   * 33; `Infinity` turns it off, `0` always yields behind rendering. See the
+   * identical option on `useChunkedTask`. Changing it sets up a new run.
    */
   readonly paintIntervalMs?: number;
   /**

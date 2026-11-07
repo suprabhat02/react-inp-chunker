@@ -11,26 +11,21 @@
  * animation — that drops to around 10 frames a second for as long as the
  * work runs.
  *
- * So a pacer keeps the plain yield for ordinary slice boundaries and, once
- * `paintIntervalMs` has passed since the last frame it knows of, makes the
- * next yield wait for a frame instead: a `requestAnimationFrame` callback,
- * then the plain yield from inside it, so the work resumes after that
- * frame's rendering rather than in front of it. Frames the browser renders
- * on its own count as well — a pending animation-frame callback, the
- * sentinel, records each one — so where rendering already interleaves with
- * the yields (a `MessageChannel` yield, Safari), the pacer never forces a
- * wait and costs nothing.
+ * So a pacer uses that fast yield only while the page has painted recently,
+ * within `paintIntervalMs`. Otherwise it yields through an ordinary task (a
+ * `MessageChannel` message, or `setTimeout` where that is what was asked
+ * for), which queues behind a frame that is due rather than in front of it:
+ * the frame renders, then the work resumes.
  *
- * It degrades to a plain `yieldToMain()`:
- *  - off the main thread — Node, a worker — where there is no `document`
- *    and nothing to paint;
- *  - with `paintIntervalMs: Infinity`, where no animation-frame callback is
- *    ever registered at all;
- *  - in a hidden document, where no frame would come; a wait already in
- *    progress is abandoned the moment the document becomes hidden;
- *  - after a wait that sees no frame within `FRAME_TIMEOUT_MS` — rendering
- *    throttled, as in an offscreen cross-origin iframe — until the
- *    sentinel sees a frame again.
+ * It never waits for a frame. Nothing can leave it waiting for one that
+ * won't come — a hidden tab, a throttled iframe, a test with faked timers:
+ * without frames it simply keeps yielding through ordinary tasks, which is
+ * what `yieldToMain()` does in Safari anyway.
+ *
+ * Frames are counted by keeping one `requestAnimationFrame` callback — the
+ * sentinel — pending; it records when the browser rendered. Off the main
+ * thread (Node, a worker: no `document`) and with `paintIntervalMs:
+ * Infinity`, no callback is ever registered and every yield is the fast one.
  */
 
 import { type YieldStrategy, now, yieldToMain } from './scheduler.js';
@@ -38,16 +33,8 @@ import { type YieldStrategy, now, yieldToMain } from './scheduler.js';
 /** Default `paintIntervalMs`: about 30 frames a second. */
 export const DEFAULT_PAINT_INTERVAL_MS = 33;
 
-/**
- * How long a forced wait for a frame may take before the pacer concludes
- * that rendering is throttled here and stops forcing waits. Chromium's own
- * guard against rendering starvation fires at about this interval, so a
- * visible, unthrottled page always produces a frame well within it.
- */
-export const FRAME_TIMEOUT_MS = 100;
-
 export interface Pacer {
-  /** Yields to the main thread — waiting for a frame first when one is overdue. */
+  /** Yields to the main thread — behind rendering when a frame is overdue. */
   yield(): Promise<void>;
   /** Cancels the pending frame sentinel. Call once the loop is finished; idempotent. */
   dispose(): void;
@@ -56,38 +43,27 @@ export interface Pacer {
 interface FrameApi {
   readonly request: (callback: () => void) => number;
   readonly cancel: (handle: number) => void;
-  readonly document: VisibilityTarget;
-}
-
-interface VisibilityTarget {
-  readonly hidden?: boolean;
-  addEventListener(type: 'visibilitychange', listener: () => void): void;
-  removeEventListener(type: 'visibilitychange', listener: () => void): void;
 }
 
 interface FrameGlobals {
   readonly requestAnimationFrame?: unknown;
   readonly cancelAnimationFrame?: unknown;
-  readonly document?: {
-    readonly addEventListener?: unknown;
-    readonly removeEventListener?: unknown;
-  };
+  readonly document?: unknown;
 }
 
 /**
  * The animation-frame API of a main-thread document, or `undefined`. A
  * worker can have `requestAnimationFrame` (for OffscreenCanvas) but has no
  * `document`, and a worker's work never keeps the page from painting, so
- * requiring the document is what keeps workers on the plain path.
+ * requiring the document is what keeps workers on the fast path.
  */
 function resolveFrameApi(): FrameApi | undefined {
-  const globals = globalThis as FrameGlobals;
-  const { requestAnimationFrame, cancelAnimationFrame, document } = globals;
+  const { requestAnimationFrame, cancelAnimationFrame, document } =
+    globalThis as FrameGlobals;
   if (
     typeof requestAnimationFrame !== 'function' ||
     typeof cancelAnimationFrame !== 'function' ||
-    typeof document?.addEventListener !== 'function' ||
-    typeof document.removeEventListener !== 'function'
+    document === undefined
   ) {
     return undefined;
   }
@@ -103,60 +79,59 @@ function resolveFrameApi(): FrameApi | undefined {
         globalThis as unknown as { cancelAnimationFrame: (handle: number) => void }
       ).cancelAnimationFrame(handle);
     },
-    document: document as VisibilityTarget,
   };
 }
 
 /**
- * Zero, negative, NaN or a non-number fall back to the default, as
- * `timeSliceMs` does. `Infinity` is allowed: it turns paint pacing off.
+ * NaN, a negative number or a non-number fall back to the default.
+ * `Infinity` turns pacing off; `0` makes every yield an ordinary task.
  */
 export function normalizePaintIntervalMs(value: number | undefined): number {
-  // `NaN > 0` is false, so this one comparison rejects NaN too.
-  return typeof value === 'number' && value > 0 ? value : DEFAULT_PAINT_INTERVAL_MS;
+  // `NaN >= 0` is false, so this one comparison rejects NaN too.
+  return typeof value === 'number' && value >= 0 ? value : DEFAULT_PAINT_INTERVAL_MS;
 }
 
 function noop(): void {
-  // Nothing to release on the plain path.
+  // Nothing to release on the fast-only path.
 }
 
 export function createPacer(
   paintIntervalMs: number,
   strategy: YieldStrategy | undefined,
 ): Pacer {
-  const yieldOptions = strategy === undefined ? undefined : { strategy };
-  const plainYield = (): Promise<void> => yieldToMain(yieldOptions);
+  const fastOptions = strategy === undefined ? undefined : { strategy };
+  const fastYield = (): Promise<void> => yieldToMain(fastOptions);
 
   const frames = paintIntervalMs === Infinity ? undefined : resolveFrameApi();
-  if (frames === undefined) return { yield: plainYield, dispose: noop };
+  if (frames === undefined) return { yield: fastYield, dispose: noop };
 
-  // Counted from creation: a task usually starts right after a frame (React
-  // runs effects after the commit that scheduled them), and a click gets
-  // its frame promptly anyway. Starting at -Infinity would make the very
-  // first yield wait for a frame that, in the common case, just happened.
-  let lastFrameAt = now();
+  // Whatever was asked for, minus scheduler.yield(): a task that waits its
+  // turn, so a frame that is due renders first.
+  const ordinaryOptions = {
+    strategy: strategy === 'set-timeout' ? 'set-timeout' : 'message-channel',
+  } as const;
+
+  // No frame seen yet, so the first yield is an ordinary one. For a task
+  // started from a click this changes little — Chromium renders first after
+  // input anyway — but a task started any other way no longer jumps ahead
+  // of the frame that would show it starting.
+  let lastFrameAt = -Infinity;
   let framesSeen = 0;
   let sentinel: number | undefined;
-  let stalled = false;
   let disposed = false;
 
-  function sawFrame(): void {
-    lastFrameAt = now();
-    framesSeen += 1;
-    stalled = false;
-  }
-
   /**
-   * Keeps one animation-frame callback pending, so frames the browser
-   * renders on its own are counted. Re-armed lazily, at the next yield, so
-   * a paused or finished task leaves nothing ticking.
+   * Keeps one animation-frame callback pending, so every frame the browser
+   * renders is counted. Re-armed lazily, at the next yield, so a paused or
+   * finished task leaves nothing ticking.
    */
   function watchForFrames(api: FrameApi): void {
     if (sentinel !== undefined || disposed) return;
     const seenBefore = framesSeen;
     const handle = api.request(() => {
       sentinel = undefined;
-      sawFrame();
+      lastFrameAt = now();
+      framesSeen += 1;
     });
     // A requestAnimationFrame that calls back synchronously — a common stub
     // in application test suites — has already run the callback by now, and
@@ -164,53 +139,12 @@ export function createPacer(
     if (framesSeen === seenBefore) sentinel = handle;
   }
 
-  function waitForFrame(api: FrameApi): Promise<void> {
-    return new Promise((resolve) => {
-      const timer = setTimeout(() => {
-        finish('timeout');
-      }, FRAME_TIMEOUT_MS);
-      const onVisibilityChange = (): void => {
-        if (api.document.hidden === true) finish('hidden');
-      };
-      // Runs once: whichever of the three — the frame, the timer, the
-      // document going hidden — gets here first tears down the other two.
-      const finish = (outcome: 'frame' | 'hidden' | 'timeout'): void => {
-        clearTimeout(timer);
-        api.document.removeEventListener('visibilitychange', onVisibilityChange);
-        if (outcome === 'frame') {
-          sawFrame();
-        } else {
-          // Only ever reached asynchronously, from the timer or the
-          // visibility listener — by then `frame` below is assigned. The
-          // 'frame' outcome, which a synchronous requestAnimationFrame can
-          // deliver before that assignment, never touches it.
-          api.cancel(frame);
-          if (outcome === 'timeout') stalled = true;
-        }
-        // From inside the frame callback, a plain yield resumes the loop
-        // after this frame's rendering, not before it.
-        void plainYield().then(resolve);
-      };
-      api.document.addEventListener('visibilitychange', onVisibilityChange);
-      // Requested last, so a synchronous requestAnimationFrame finds the
-      // timer and the listener already in place for finish() to remove.
-      const frame = api.request(() => {
-        finish('frame');
-      });
-    });
-  }
-
   return {
     yield() {
       watchForFrames(frames);
-      if (
-        stalled ||
-        frames.document.hidden === true ||
-        now() - lastFrameAt < paintIntervalMs
-      ) {
-        return plainYield();
-      }
-      return waitForFrame(frames);
+      return now() - lastFrameAt < paintIntervalMs
+        ? fastYield()
+        : yieldToMain(ordinaryOptions);
     },
     dispose() {
       disposed = true;

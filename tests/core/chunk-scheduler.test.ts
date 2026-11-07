@@ -792,3 +792,142 @@ describe('createChunkScheduler() — paused before the first item', () => {
     expect(result).toEqual({ status: 'done', results: [1, 2, 3] });
   });
 });
+
+describe('createChunkScheduler() — defects found in review', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps a loop for a task paused from inside the START notification, so resume() finishes it', async () => {
+    const scheduler = createChunkScheduler({
+      items: [1, 2, 3],
+      processItem: (x: number) => x,
+    });
+    let pausedOnce = false;
+    scheduler.subscribe(() => {
+      if (!pausedOnce && scheduler.getSnapshot().status === 'processing') {
+        pausedOnce = true;
+        scheduler.pause();
+      }
+    });
+    scheduler.start();
+    expect(scheduler.getSnapshot().status).toBe('paused');
+    await sleep(10);
+    scheduler.resume();
+    await expect(scheduler.settled).resolves.toEqual({
+      status: 'done',
+      results: [1, 2, 3],
+    });
+  });
+
+  it('settles once, without running anything, when cancelled from inside the START notification', async () => {
+    const processItem = vi.fn((x: number) => x);
+    const scheduler = createChunkScheduler({ items: [1, 2, 3], processItem });
+    scheduler.subscribe(() => {
+      if (scheduler.getSnapshot().status === 'processing') scheduler.cancel();
+    });
+    scheduler.start();
+    await expect(scheduler.settled).resolves.toEqual({
+      status: 'cancelled',
+      results: [],
+    });
+    await sleep(10);
+    expect(processItem).not.toHaveBeenCalled();
+  });
+
+  it('runs no notification and no onYield after a cancel that lands during a yield', async () => {
+    const onYield = vi.fn();
+    const processItem = vi.fn((x: number) => x);
+    const statuses: string[] = [];
+    const scheduler = createChunkScheduler({
+      items: [0, 1, 2, 3, 4],
+      processItem,
+      timeSliceMs: 0.0001,
+      // Lands while the loop is awaiting the yield that follows this slice,
+      // the way an unmount does.
+      onSlice: () => {
+        queueMicrotask(() => {
+          scheduler.cancel();
+        });
+      },
+      onYield,
+    });
+    scheduler.subscribe(() => statuses.push(scheduler.getSnapshot().status));
+    scheduler.start();
+    const result = await scheduler.settled;
+
+    expect(result).toEqual({ status: 'cancelled', results: [0] });
+    expect(processItem).toHaveBeenCalledTimes(1);
+    expect(onYield).not.toHaveBeenCalled();
+    // START, CANCEL, and the settle that carries the results. No progress
+    // notification after the cancel.
+    expect(statuses).toEqual(['processing', 'cancelled', 'cancelled']);
+  });
+
+  it('settles as cancelled — what its snapshot says — when an item cancels its own task and then throws, reporting the error', async () => {
+    const reported: unknown[] = [];
+    vi.stubGlobal('reportError', (error: unknown) => reported.push(error));
+    const boom = new Error('thrown after cancel');
+    const scheduler: { cancel: () => void } = createChunkScheduler({
+      items: [1, 2, 3],
+      processItem: () => {
+        scheduler.cancel();
+        throw boom;
+      },
+    });
+    (scheduler as ReturnType<typeof createChunkScheduler>).start();
+    const result = await (scheduler as ReturnType<typeof createChunkScheduler>).settled;
+    expect(result.status).toBe('cancelled');
+    expect(
+      (scheduler as ReturnType<typeof createChunkScheduler>).getSnapshot().status,
+    ).toBe('cancelled');
+    expect(reported).toEqual([boom]);
+  });
+
+  it('does not report the abort reason itself, thrown by signal.throwIfAborted()', async () => {
+    const reported: unknown[] = [];
+    vi.stubGlobal('reportError', (error: unknown) => reported.push(error));
+    const controller = new AbortController();
+    const scheduler = createChunkScheduler({
+      items: [1, 2, 3],
+      signal: controller.signal,
+      processItem: () => {
+        controller.abort(new Error('no longer needed'));
+        controller.signal.throwIfAborted();
+      },
+    });
+    scheduler.start();
+    const result = await scheduler.settled;
+    expect(result.status).toBe('cancelled');
+    expect(result.reason).toEqual(new Error('no longer needed'));
+    expect(reported).toEqual([]);
+  });
+
+  it('yields after resume() before running the next item, so the click that resumed it paints first', async () => {
+    const processItem = vi.fn((x: number) => x);
+    const holder: {
+      scheduler?: ReturnType<typeof createChunkScheduler<number, number>>;
+    } = {};
+    const scheduler = createChunkScheduler({
+      items: [0, 1, 2, 3, 4],
+      processItem,
+      timeSliceMs: 0.0001,
+      onItem: (_result: number, _item: number, index: number) => {
+        if (index === 0) holder.scheduler?.pause();
+      },
+    });
+    holder.scheduler = scheduler;
+    scheduler.start();
+    await sleep(10);
+    expect(scheduler.getSnapshot().status).toBe('paused');
+    expect(processItem).toHaveBeenCalledTimes(1);
+
+    scheduler.resume();
+    // Everything a click handler's own task would still run: microtasks.
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+    expect(processItem).toHaveBeenCalledTimes(1);
+
+    await scheduler.settled;
+    expect(processItem).toHaveBeenCalledTimes(5);
+  });
+});

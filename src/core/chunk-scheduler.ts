@@ -7,7 +7,7 @@ import {
   transition,
 } from './chunk-machine.js';
 import { createDiagnostics, isDevelopment, warnDev } from './diagnostics.js';
-import { notifyAll } from './listeners.js';
+import { notifyAll, reportUncaught } from './listeners.js';
 import { createPacer, normalizePaintIntervalMs } from './pacer.js';
 import {
   type YieldStrategy,
@@ -23,20 +23,20 @@ export interface ChunkSchedulerOptions<T, R> {
   /** Max ms of uninterrupted work before yielding. Default 5. */
   readonly timeSliceMs?: number;
   /**
-   * The longest the task may keep the page from painting, in ms. Default
+   * How long, in ms, the task may keep resuming ahead of rendering. Default
    * 33, about 30 frames a second.
    *
    * Between slices the task yields with `scheduler.yield()` where it can,
    * which resumes the work ahead of other queued tasks — and, in Chromium,
    * ahead of rendering, so on its own the page would paint only about every
    * 100 ms while the task runs. Once this much time has passed since the
-   * last frame, the next yield waits for a frame to render first. Frames
-   * the browser renders on its own count too, so where rendering already
-   * interleaves with the yields this costs nothing.
+   * last frame, the task yields through an ordinary task instead, which
+   * queues behind the due frame, so the frame renders first. It never waits
+   * for a frame, so a hidden tab or a throttled iframe can't stall it.
    *
    * `Infinity` turns it off: the most throughput, at the price of those
-   * ~100 ms paint gaps in Chromium. Input is answered promptly either way.
-   * Has no effect off the main thread (Node, workers) or in a hidden tab.
+   * ~100 ms paint gaps in Chromium. `0` makes every yield an ordinary task.
+   * Input is answered promptly either way. Has no effect off the main thread.
    */
   readonly paintIntervalMs?: number;
   /**
@@ -452,6 +452,11 @@ export function createChunkScheduler<T, R>(
         if (status === 'cancelled') break;
         if (status === 'paused') {
           await waitForWake();
+          // Woken by resume() — usually called from a click, whose frame
+          // should paint before the work does, the same reason the loop
+          // yields before its first item — or by cancel(). Yield once
+          // either way; the top of the loop then sees which it was.
+          await pacer.yield();
           sliceStartedAt = now();
           if (isDevelopment) diagnostics.resumed(sliceStartedAt, index);
           continue;
@@ -500,6 +505,10 @@ export function createChunkScheduler<T, R>(
           if (isDevelopment) diagnostics.sliceEnded(checkedAt, index);
           onSlice?.(checkedAt - sliceStartedAt, index);
           await pacer.yield();
+          // Cancelled during the yield — the moment an unmount usually
+          // lands. Stop before the progress notification and onYield:
+          // nothing of the caller's may run after cancel().
+          if (machineState.status === 'cancelled') continue;
           notify(); // surface the progress made during this slice
           sliceStartedAt = now();
           onYield?.();
@@ -507,6 +516,16 @@ export function createChunkScheduler<T, R>(
         }
       }
     } catch (error) {
+      if (machineState.status === 'cancelled') {
+        // Cancelled first, then something threw — a processItem that
+        // cancelled its own task, say. The machine is already terminal, so
+        // the task settles as what its snapshot says; the error is
+        // reported rather than lost, unless it is the abort reason itself
+        // (what `signal.throwIfAborted()` throws).
+        if (error !== cancelReason) reportUncaught(error);
+        finishCancelled();
+        return;
+      }
       const published = publishResults();
       dispatch({ type: 'ERROR', error });
       settleWith('error', published, error);
@@ -526,8 +545,13 @@ export function createChunkScheduler<T, R>(
   }
 
   function start(): void {
-    dispatch({ type: 'START' });
-    if (machineState.status === 'processing' && !loopStarted) {
+    const { changed } = dispatch({ type: 'START' });
+    // Keyed on START having happened, not on the status now: a subscriber
+    // notified of START can pause() before this line runs, and a paused
+    // task still needs its loop — it waits at the pause gate for resume().
+    // (One that cancel()s has already been settled by settleIfNeverStarted,
+    // which also set `loopStarted`.)
+    if (changed && !loopStarted) {
       loopStarted = true;
       void runLoop();
     }

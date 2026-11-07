@@ -39,16 +39,18 @@ has:
 Two things on top of that, both measured in the
 [benchmark app](bench/inp-demo/README.md):
 
-- **The update that starts a task paints first.** The first item runs only after
-  one yield. React runs the effects of a click's update before the browser
-  paints, so a first slice run straight away would sit between the click and
-  its frame.
+- **A click that starts (or resumes) a task paints first.** The first item runs
+  only after one yield. React runs the effects of a click's update before the
+  browser paints, so a first slice run straight away would sit between the
+  click and its frame. A task started any other way gets its first frame at
+  most one slice late.
 - **The page keeps painting.** `scheduler.yield()` resumes the work ahead of
   other tasks — in Chromium, ahead of rendering too, so on its own the page
   would paint only about every 100 ms while the work runs. Once
-  `paintIntervalMs` (33 ms by default) has passed without a frame, the next
-  yield waits for one. Frames the browser renders on its own count, so where
-  rendering already interleaves this costs nothing.
+  `paintIntervalMs` (33 ms by default) has passed without a frame, the task
+  yields through an ordinary task instead, which waits behind the due frame.
+  It never waits on a frame itself, so a hidden tab, a throttled iframe or a
+  test with faked timers can't stall it.
 
 No dependencies beyond React. The scheduling engine (`react-inp-chunker/core`)
 doesn't import React at all, so it also works in plain TypeScript, a Web Worker or
@@ -105,11 +107,11 @@ item. Your component re-renders with progress once per slice, not once per item.
 
 Three options exist for work at the extremes, and most code needs none of them:
 
-| Option                    | Default | Use it when                                                                                                                                                                                                                                                                                           |
-| ------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `batchSize: number`       | `1`     | An item takes nanoseconds, so reading the clock costs more than the work. A slice may then overrun its budget by up to `batchSize` items — that is the whole trade.                                                                                                                                   |
-| `collectResults: boolean` | `true`  | You already take results through `onItem` and don't want a million-entry array retained. `results` settles as an empty array.                                                                                                                                                                         |
-| `paintIntervalMs: number` | `33`    | Something on screen animates while the work runs and needs more than ~30 frames a second (lower it), or nothing on screen changes and you want the last few percent of throughput (`Infinity`: Chromium then paints about every 100 ms while the task runs, though input is still answered promptly). |
+| Option                    | Default | Use it when                                                                                                                                                                                                                                                                                                                               |
+| ------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `batchSize: number`       | `1`     | An item takes nanoseconds, so reading the clock costs more than the work. A slice may then overrun its budget by up to `batchSize` items — that is the whole trade.                                                                                                                                                                       |
+| `collectResults: boolean` | `true`  | You already take results through `onItem` and don't want a million-entry array retained. `results` settles as an empty array.                                                                                                                                                                                                             |
+| `paintIntervalMs: number` | `33`    | Something on screen animates while the work runs and needs more than ~30 frames a second (lower it; `0` always yields behind rendering), or nothing on screen changes and you want the last few percent of throughput (`Infinity`: Chromium then paints about every 100 ms while the task runs, though input is still answered promptly). |
 
 Three more exist for running this against data you don't fully trust, or in production:
 
@@ -212,8 +214,8 @@ Dropping any of these is a breaking change; [SUPPORT.md](SUPPORT.md) has the
 versioning rules.
 
 **Size**, minified and brotli-compressed, with no dependencies of its own:
-`useChunkedTask` 2.49 kB, `useDeferredTask` 2.28 kB, `createChunkScheduler`
-without React 1.9 kB, everything together 3.1 kB. CI fails if a change pushes
+`useChunkedTask` 2.39 kB, `useDeferredTask` 2.18 kB, `createChunkScheduler`
+without React 1.81 kB, everything together 3.01 kB. CI fails if a change pushes
 any of them over budget.
 
 Bundlers that set the `production` export condition — webpack, Vite, Rspack,
@@ -222,13 +224,14 @@ merely guarded by a flag.
 
 **What it guarantees.** A slice overruns by at most one item (or `batchSize`
 items, if you raised it), because the clock is read after every item rather than
-on an average. No item runs inside `start()`: the task yields once first (one
-with no items settles straight away). A settled task never reports its results a
-render late. Nothing runs after `cancel()`, no state update arrives after
-unmount, and `settled` resolves exactly once and never rejects — even when a
-subscriber throws (the error is reported, the way a throwing event listener's
-is, and every other subscriber still hears every update). The loop allocates
-nothing per item.
+on an average. No item runs inside `start()` or `resume()`: the task yields once
+first (one with no items settles straight away). A settled task never reports
+its results a render late. Nothing runs after `cancel()`, no state update
+arrives after unmount, and `settled` resolves exactly once and never rejects —
+even when a subscriber throws. That error is reported as uncaught, the way a
+throwing event listener's is, and every other subscriber still hears every
+update; in Node, as with any uncaught exception, it ends the process unless you
+handle `uncaughtException`. The loop allocates nothing per item.
 
 **Supply chain.** Published from CI through npm Trusted Publishing, so no
 long-lived token exists to leak, with signed provenance you can verify yourself:

@@ -15,7 +15,7 @@ export function notifyAll(listeners: ReadonlySet<() => void>): void {
     try {
       listener();
     } catch (error) {
-      reportListenerError(error);
+      reportUncaught(error);
     }
   }
 }
@@ -25,13 +25,15 @@ interface ReportErrorGlobal {
 }
 
 /**
- * `reportError()` where the platform has it (browsers: it reaches
- * `window.onerror` and the console as an uncaught error). Elsewhere —
- * Node has no `reportError` — the error is rethrown from a microtask, which
- * surfaces it the same way an uncaught exception would, rather than
- * swallowing it.
+ * Reports an error that has nowhere else to go, as an uncaught exception —
+ * the way `EventTarget` reports a throwing listener, and RxJS an unhandled
+ * error. `reportError()` where the platform has it (browsers: it reaches
+ * `window.onerror` and the console). Elsewhere — Node has no `reportError` —
+ * the error is rethrown from a microtask: Node then treats it as any other
+ * uncaught exception, which ends the process unless an `uncaughtException`
+ * handler is installed. Swallowing it instead would hide the bug.
  */
-function reportListenerError(error: unknown): void {
+export function reportUncaught(error: unknown): void {
   const { reportError } = globalThis as ReportErrorGlobal;
   if (typeof reportError === 'function') {
     (reportError as (error: unknown) => void)(error);

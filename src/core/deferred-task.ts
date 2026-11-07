@@ -7,7 +7,7 @@ import {
   transition,
 } from './chunk-machine.js';
 import { createDiagnostics, isDevelopment } from './diagnostics.js';
-import { notifyAll } from './listeners.js';
+import { notifyAll, reportUncaught } from './listeners.js';
 import { createPacer, normalizePaintIntervalMs } from './pacer.js';
 import {
   type YieldStrategy,
@@ -45,9 +45,9 @@ export interface DeferredTaskOptions<T> {
   /** Max ms of uninterrupted work before yielding. Default 5. */
   readonly timeSliceMs?: number;
   /**
-   * The longest the task may keep the page from painting, in ms. Default 33;
-   * `Infinity` turns it off. See the identical option on
-   * `createChunkScheduler`.
+   * How long, in ms, the task may keep resuming ahead of rendering. Default
+   * 33; `Infinity` turns it off, `0` makes every yield an ordinary task. See
+   * the identical option on `createChunkScheduler`.
    */
   readonly paintIntervalMs?: number;
   /**
@@ -345,6 +345,10 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
 
         if (status === 'paused') {
           await waitForWake();
+          // Woken by resume() — usually from a click, whose frame should
+          // paint before the work does — or by cancel(). Yield once either
+          // way; see the same step in createChunkScheduler's loop.
+          await pacer.yield();
           sliceStartedAt = now();
           if (isDevelopment) diagnostics.resumed(sliceStartedAt, segment);
           // Don't fall through to generator.next() just because the gate
@@ -361,6 +365,14 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
           continue;
         }
 
+        if (generator === undefined) {
+          generator = task();
+          // The factory is the caller's code: it may have paused or
+          // cancelled this very task. Back to the top, so neither lets a
+          // segment run.
+          continue;
+        }
+
         // The cancellation check above MUST run before this call, not
         // after: calling the generator is where its actual (synchronous)
         // work for this segment happens. An earlier draft called
@@ -374,7 +386,6 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
         // batchSize of 1 this runs exactly one segment, then checks.
         let done = false;
         for (let inBatch = 0; inBatch < batchSize; inBatch++) {
-          generator ??= task();
           step = generator.next();
           segment += 1;
           if (step.done) {
@@ -393,6 +404,10 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
           if (isDevelopment) diagnostics.sliceEnded(checkedAt, segment);
           onSlice?.(checkedAt - sliceStartedAt, segment);
           await pacer.yield();
+          // Cancelled during the yield: back to the top, which returns the
+          // generator (running its `finally` blocks) — and skips the
+          // notification and onYield, which must not run after cancel().
+          if (machineState.status === 'cancelled') continue;
           notify();
           sliceStartedAt = now();
           onYield?.();
@@ -400,6 +415,15 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
         }
       }
     } catch (error) {
+      if (machineState.status === 'cancelled') {
+        // Cancelled first, then something threw — most often the
+        // generator's own `finally` block, run by generator.return() above.
+        // The task settles as what its snapshot says; the error is
+        // reported rather than lost, unless it is the abort reason itself.
+        if (error !== cancelReason) reportUncaught(error);
+        finishCancelled();
+        return;
+      }
       dispatch({ type: 'ERROR', error });
       settleWith('error', undefined, error);
       return;
@@ -427,8 +451,11 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
   }
 
   function start(): void {
-    dispatch({ type: 'START' });
-    if (machineState.status === 'processing' && !loopStarted) {
+    const { changed } = dispatch({ type: 'START' });
+    // Keyed on START having happened, not on the status now — see the same
+    // function in createChunkScheduler: a subscriber paused during START's
+    // notification still needs a loop to wait at the pause gate.
+    if (changed && !loopStarted) {
       loopStarted = true;
       void runLoop();
     }

@@ -50,8 +50,14 @@ What the numbers show, and what they do not:
 - Total time differences between react-inp-chunker and hand-written
   `scheduler.yield` are within run-to-run noise here; this benchmark does not
   show either one finishing faster.
-- The final sort of 20,000 results is still one block of work, which is why
-  the longest frame stays around 100 ms in the sliced variants.
+- In the two variants that yield with `scheduler.yield()`, the longest frame
+  stays around 100 ms or more. That is not the final sort: Chromium runs
+  `scheduler.yield()` continuations ahead of rendering, so the page paints
+  only when its own starvation guard steps in. The `setTimeout` variant does
+  the same sort, but yields through ordinary tasks and paints between slices;
+  its longest frame is that sort and the render after it. These results were
+  measured with react-inp-chunker 0.4.0. From 0.5.0 it paces its yields so the
+  page keeps painting (`paintIntervalMs`).
 
 ## Run it
 

@@ -6,70 +6,97 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## 0.5.0 — 2026-11-07
 
-Scheduling that plays fair with rendering, and two ways a task could hang,
-closed. Both scheduling changes came out of the
-[benchmark app](bench/inp-demo/README.md): measured over 80 runs per variant
-(two passes, opposite orders) against 0.4.0 in the same session — headless
-Chromium 153, 4× CPU throttling, 20,000 rows — the click that starts a task
-reaches its next frame in a median 6.6 ms instead of 11.1 ms, and the longest
-gap between frames while the task runs drops from 107 ms to 55 ms. Total time
-moves from 334 ms to 346 ms, inside the run-to-run spread.
+Scheduling that plays fair with rendering, and several ways a task could hang
+or misreport itself, closed. The scheduling changes came out of the
+[benchmark app](bench/inp-demo/README.md). Measured with it over 80 runs per
+variant — two passes in opposite orders, with 0.4.0 installed from npm under an
+alias in the same session; headless Chromium 153, 4× CPU throttling, 20,000
+rows — the click that starts a task reaches its next frame in a median 7.2 ms
+instead of 11.7 ms, and the longest gap between frames while the task runs drops
+from 108 ms to 55 ms. Total time moves from 339 ms to 344 ms, inside the
+run-to-run spread.
 
 ### Changed
 
-- **The first item (or generator segment) now runs after one yield, never
-  inside `start()`.** A task is usually started from an effect, and React
-  runs the effects of an update caused by a click before the browser paints —
-  so the first slice used to sit between the click and its frame. A task with
-  no items still settles synchronously. If your own tests started a task and
-  then read `onItem` side effects (or `processItem` calls) synchronously, they
-  now need to await a tick, or `waitFor` them; and `createDeferredTask` now
-  calls its `task` factory at that point too, not inside `start()`.
+- **The first item (or generator segment) runs after one yield, never inside
+  `start()` — and the next one after one yield, never inside `resume()`.**
+  Tasks are usually started from an effect, and React runs the effects of an
+  update caused by a click before the browser paints, so the first slice used
+  to sit between the click and its frame; a click on a resume button had the
+  same problem. A task with no items still settles synchronously. A task
+  started other than by input — from a timer, say — still gets its first frame
+  at most one slice late, and much sooner than before (in Chromium, a median
+  5.4 ms after starting instead of 14.2 ms).
+
+  What to change: tests that read `onItem` side effects or `processItem` calls
+  synchronously right after starting a task now need to await a tick, or
+  `waitFor` them. Hook state right after the first render is `processing`
+  even for a task small enough that 0.4.0 had already reported `done` by then.
+  And `createDeferredTask` calls its `task` factory just before the first
+  segment, not inside `start()`.
+
 - **Paint-aware pacing, on by default.** `scheduler.yield()` resumes the work
-  ahead of other queued tasks, which in Chromium includes rendering: on its
-  own the page painted only when the browser's starvation guard stepped in,
-  about every 100 ms — a click still got its frame promptly, but a progress
-  bar or anything else on screen updated at around 10 frames a second. Now,
-  once `paintIntervalMs` (33 ms) has passed without a frame, the next yield
-  waits for one. Frames the browser renders on its own count, so where
-  rendering already interleaves with the yields (a `MessageChannel` yield,
-  Safari) nothing is forced. Off the main thread, in a hidden tab and in a
-  throttled iframe, it steps aside rather than wait for a frame that won't
-  come.
-- Size budgets raised for the above: `createChunkScheduler` 1.47 kB → 1.9 kB,
-  `useChunkedTask` 2.03 kB → 2.49 kB, `useDeferredTask` 1.83 kB → 2.28 kB
-  (minified, brotli-compressed). Most of it is browser API names a minifier
+  ahead of other queued tasks, which in Chromium includes rendering: on its own
+  the page painted only when the browser's starvation guard stepped in, about
+  every 100 ms. A click still got its frame promptly, but a progress bar or
+  anything else on screen updated at around 10 frames a second. Now, once
+  `paintIntervalMs` (33 ms) has passed without a frame, the task yields through
+  an ordinary task instead, which waits behind the due frame, until the
+  browser has rendered one. It never waits on a frame itself, so a hidden tab,
+  a throttled iframe or a test with faked timers can't stall it — without
+  frames it just keeps yielding the way it does in Safari.
+- Size budgets raised for the above: `createChunkScheduler` 1.47 kB → 1.81 kB,
+  `useChunkedTask` 2.03 kB → 2.39 kB, `useDeferredTask` 1.83 kB → 2.18 kB
+  (minified, brotli-compressed). Much of it is browser API names a minifier
   can't shorten.
 
 ### Added
 
 - **`paintIntervalMs`** on both hooks and both core engines, and
   **`DEFAULT_PAINT_INTERVAL_MS`** (33) from `react-inp-chunker/core`. Lower it
-  for smoother animation while the work runs; `Infinity` turns pacing off for
-  the most throughput.
+  for smoother animation while the work runs (`0` always yields behind
+  rendering); `Infinity` turns pacing off for the most throughput.
 
 ### Fixed
 
 - **A subscriber that threw could hang a task.** Listeners were called in a
   plain loop, so one that threw stopped every listener after it — React's own
-  `useSyncExternalStore` subscriber among them — and the exception escaped
-  into the engine: thrown out of `start()` before the loop ran, or out of the
-  final `done` notification before `settled` resolved, leaving it pending
-  forever. Each listener is now isolated: a throw is reported the way a
-  throwing event listener's is (`reportError()`, or rethrown from a microtask
-  where that doesn't exist) and every other listener still runs.
+  `useSyncExternalStore` subscriber among them — and the exception escaped into
+  the engine: out of `start()` before the loop ran, or out of the final `done`
+  notification before `settled` resolved, leaving it pending forever. Each
+  listener is now isolated, and a throw is reported as an uncaught exception,
+  the way a throwing event listener's is: `reportError()` in browsers, rethrown
+  from a microtask elsewhere. In Node that ends the process unless an
+  `uncaughtException` handler is installed, as for any uncaught exception —
+  where 0.4.0 might instead have hung, crashed on an unhandled rejection, or
+  turned the subscriber's bug into the task's `error`, depending on when it
+  threw.
 - **`createDeferredTask` (and `useDeferredTask`) hung if the `task` factory
   threw.** It was called outside the loop's error handling, so the task stayed
-  `processing` with `settled` never resolving, and an unhandled rejection was
-  all anyone saw. The task now settles as an error, like a throw from inside
-  the generator.
+  `processing` with `settled` never resolving. It now settles as an error, like
+  a throw from inside the generator.
+- **A task paused from inside the `START` notification never ran.** `start()`
+  only began the processing loop if the task was still `processing` after
+  notifying, so a subscriber that paused it there left no loop to resume:
+  `resume()` then sat in `processing` forever.
+- **`onYield` and a progress notification could run after `cancel()`.** A
+  cancel that landed while the loop was yielding — the usual moment for an
+  unmount — was only noticed after both had run.
+- **A task cancelled from inside its own work, which then threw, settled as
+  `error` while its snapshot said `cancelled`.** The two now agree on
+  `cancelled`. The error is reported rather than lost — unless it is the abort
+  reason itself, as `signal.throwIfAborted()` throws — and so is one thrown by a
+  generator's `finally` block when cancellation returns it.
 - The development warning for an item that blocks for more than 50 ms never
   judged the _first_ item, which it used as its baseline. It does now.
 - The `onError` documentation said omitting `onItem`, rather than `onError`,
   defaults to `'abort'`.
 - `SECURITY.md`'s supported-versions table named a specific minor version and
-  went stale with every release (it said 0.3.x while 0.4.0 was current). It
-  now says what it means: the latest minor release.
+  went stale with every release (it said 0.3.x while 0.4.0 was current). It now
+  says what it means: the latest minor release.
+- CI installed WebKit for the real-browser tests but never launched it, so
+  yielding was measured in Chromium only, although the README and the 0.2.0
+  entry below said WebKit too. It now runs in both.
 
 ## 0.4.0 — 2026-11-04
 

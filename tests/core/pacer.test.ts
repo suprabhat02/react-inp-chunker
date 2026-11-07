@@ -2,20 +2,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   DEFAULT_PAINT_INTERVAL_MS,
-  FRAME_TIMEOUT_MS,
   createPacer,
   normalizePaintIntervalMs,
 } from '../../src/core/pacer.js';
 
 /**
- * The pacer decides, at each yield, between a plain yield and waiting for a
- * frame. Everything that decision reads is controlled here: the clock is
- * virtual, frames render only when a test calls `frames.render()`, and
- * `document.hidden` is whatever the test sets. Plain yields use a real
- * MessageChannel, which is fast and needs no faking.
+ * The pacer decides, at each yield, between the fast yield
+ * (`scheduler.yield()`) and an ordinary task that queues behind rendering.
+ * Everything that decision reads is controlled here: the clock is virtual,
+ * frames render only when a test calls `frames.render()`, and
+ * `scheduler.yield` is a spy — so a test can tell which path a yield took
+ * by whether the spy was called. Ordinary yields use a real MessageChannel.
  */
 
 let clock = 0;
+let schedulerYield: ReturnType<typeof vi.fn<() => Promise<void>>>;
 
 function fakeFrames() {
   let nextHandle = 1;
@@ -45,56 +46,39 @@ function fakeFrames() {
   };
 }
 
-let hidden = false;
-
-function setHidden(value: boolean): void {
-  hidden = value;
-  document.dispatchEvent(new Event('visibilitychange'));
-}
-
-/** Resolves after a macrotask, so a promise that could settle has. */
-function flush(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 0));
-}
-
-async function isSettled(promise: Promise<void>): Promise<boolean> {
-  let settled = false;
-  void promise.then(() => {
-    settled = true;
-  });
-  await flush();
-  await flush();
-  return settled;
+/** Yields once, and reports which path it took. */
+async function yieldVia(
+  pacer: ReturnType<typeof createPacer>,
+): Promise<'fast' | 'ordinary'> {
+  const before = schedulerYield.mock.calls.length;
+  await pacer.yield();
+  return schedulerYield.mock.calls.length > before ? 'fast' : 'ordinary';
 }
 
 beforeEach(() => {
   clock = 0;
   vi.stubGlobal('performance', { now: () => clock });
-  hidden = false;
-  Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+  schedulerYield = vi.fn(() => Promise.resolve());
+  vi.stubGlobal('scheduler', { yield: schedulerYield });
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  vi.useRealTimers();
-  // Back to jsdom's own getter on Document.prototype.
-  delete (document as { hidden?: boolean }).hidden;
 });
 
 describe('normalizePaintIntervalMs()', () => {
-  it('falls back to the default for anything that is not a positive number, like timeSliceMs', () => {
+  it('falls back to the default for NaN, a negative number or a non-number', () => {
     expect(normalizePaintIntervalMs(undefined)).toBe(DEFAULT_PAINT_INTERVAL_MS);
     expect(normalizePaintIntervalMs(Number.NaN)).toBe(DEFAULT_PAINT_INTERVAL_MS);
-    expect(normalizePaintIntervalMs(0)).toBe(DEFAULT_PAINT_INTERVAL_MS);
     expect(normalizePaintIntervalMs(-16)).toBe(DEFAULT_PAINT_INTERVAL_MS);
     expect(normalizePaintIntervalMs('16' as unknown as number)).toBe(
       DEFAULT_PAINT_INTERVAL_MS,
     );
   });
 
-  it('keeps positive values, and Infinity, which turns pacing off', () => {
+  it('keeps zero, positive values and Infinity, which each mean something', () => {
+    expect(normalizePaintIntervalMs(0)).toBe(0);
     expect(normalizePaintIntervalMs(16)).toBe(16);
-    expect(normalizePaintIntervalMs(0.5)).toBe(0.5);
     expect(normalizePaintIntervalMs(Infinity)).toBe(Infinity);
   });
 
@@ -104,183 +88,122 @@ describe('normalizePaintIntervalMs()', () => {
 });
 
 describe('createPacer() — where there is nothing to paint', () => {
-  it.each([
-    ['requestAnimationFrame is missing', 'requestAnimationFrame'],
-    ['cancelAnimationFrame is missing', 'cancelAnimationFrame'],
-  ])('is a plain yield when %s', async (_label, missing) => {
-    fakeFrames();
-    vi.stubGlobal(missing, undefined);
-    clock = 0;
-    const pacer = createPacer(33, 'message-channel');
-    clock = 1000; // long overdue, if frames counted
-    await pacer.yield();
-    pacer.dispose();
-  });
+  it.each(['requestAnimationFrame', 'cancelAnimationFrame'])(
+    'always takes the fast yield when %s is missing',
+    async (missing) => {
+      fakeFrames();
+      vi.stubGlobal(missing, undefined);
+      const pacer = createPacer(33, undefined);
+      clock = 1000;
+      expect(await yieldVia(pacer)).toBe('fast');
+      pacer.dispose();
+    },
+  );
 
-  it('is a plain yield without a document — a worker, which may have requestAnimationFrame', async () => {
+  it('always takes the fast yield without a document — a worker, which may have requestAnimationFrame', async () => {
     const frames = fakeFrames();
     vi.stubGlobal('document', undefined);
-    const pacer = createPacer(33, 'message-channel');
+    const pacer = createPacer(33, undefined);
     clock = 1000;
-    await pacer.yield();
-    pacer.dispose();
+    expect(await yieldVia(pacer)).toBe('fast');
     expect(frames.request).not.toHaveBeenCalled();
   });
 
-  it('is a plain yield when the document cannot be listened to', async () => {
+  it('never registers an animation-frame callback with paintIntervalMs: Infinity', async () => {
     const frames = fakeFrames();
-    vi.stubGlobal('document', { addEventListener: () => undefined });
-    const pacer = createPacer(33, 'message-channel');
-    clock = 1000;
-    await pacer.yield();
-    expect(frames.request).not.toHaveBeenCalled();
-  });
-
-  it('never registers an animation-frame callback at all with paintIntervalMs: Infinity', async () => {
-    const frames = fakeFrames();
-    const pacer = createPacer(Infinity, 'message-channel');
+    const pacer = createPacer(Infinity, undefined);
     clock = 1_000_000;
-    await pacer.yield();
-    await pacer.yield();
+    expect(await yieldVia(pacer)).toBe('fast');
+    expect(await yieldVia(pacer)).toBe('fast');
     pacer.dispose();
     expect(frames.request).not.toHaveBeenCalled();
   });
 });
 
 describe('createPacer() — on the main thread', () => {
-  it('yields plainly while the last frame is recent, keeping one frame sentinel pending', async () => {
+  it('yields behind rendering until it has seen a frame', async () => {
+    fakeFrames();
+    const pacer = createPacer(33, undefined);
+    expect(await yieldVia(pacer)).toBe('ordinary');
+    clock = 5;
+    expect(await yieldVia(pacer)).toBe('ordinary');
+    pacer.dispose();
+  });
+
+  it('takes the fast yield while the last frame is recent, and yields behind rendering once one is overdue', async () => {
     const frames = fakeFrames();
-    const pacer = createPacer(33, 'message-channel');
+    const pacer = createPacer(33, undefined);
+    expect(await yieldVia(pacer)).toBe('ordinary'); // arms the sentinel
     clock = 10;
-    await pacer.yield();
+    frames.render(); // a frame at t = 10
+
     clock = 20;
+    expect(await yieldVia(pacer)).toBe('fast');
+    clock = 42;
+    expect(await yieldVia(pacer)).toBe('fast');
+    clock = 43; // 33 ms since that frame
+    expect(await yieldVia(pacer)).toBe('ordinary');
+
+    clock = 50;
+    frames.render(); // the browser rendered; the sentinel saw it
+    clock = 60;
+    expect(await yieldVia(pacer)).toBe('fast');
+    pacer.dispose();
+  });
+
+  it('keeps exactly one frame sentinel pending, re-armed only after it fires', async () => {
+    const frames = fakeFrames();
+    const pacer = createPacer(33, undefined);
     await pacer.yield();
-    // One sentinel, re-armed only once it has fired, not one per yield.
+    await pacer.yield();
+    await pacer.yield();
     expect(frames.request).toHaveBeenCalledTimes(1);
     expect(frames.pending).toBe(1);
-    pacer.dispose();
-  });
-
-  it('waits for a frame once one is overdue, and resumes only after it renders', async () => {
-    const frames = fakeFrames();
-    const pacer = createPacer(33, 'message-channel');
-    clock = 40;
-    const waiting = pacer.yield();
-    expect(await isSettled(waiting)).toBe(false);
 
     frames.render();
-    expect(await isSettled(waiting)).toBe(true);
-    pacer.dispose();
-  });
-
-  it('counts frames the browser renders on its own, and so forces no wait while they keep coming', async () => {
-    const frames = fakeFrames();
-    const pacer = createPacer(33, 'message-channel');
-    clock = 10;
-    await pacer.yield(); // arms the sentinel
-    clock = 30;
-    frames.render(); // a frame the browser chose to render: lastFrameAt = 30
-    clock = 50; // 20 ms since that frame, under the interval
-    expect(await isSettled(pacer.yield())).toBe(true);
-    pacer.dispose();
-  });
-
-  it('measures the interval from the most recent frame it saw', async () => {
-    const frames = fakeFrames();
-    const pacer = createPacer(33, 'message-channel');
-    clock = 40;
-    const first = pacer.yield();
-    frames.render();
-    await first; // waited, and saw a frame at 40
-    clock = 60;
-    expect(await isSettled(pacer.yield())).toBe(true); // 20 ms later: plain
-    clock = 80;
-    const overdue = pacer.yield(); // 40 ms after the last frame: waits
-    expect(await isSettled(overdue)).toBe(false);
-    frames.render();
-    await overdue;
-    pacer.dispose();
-  });
-
-  it('never waits for a frame in a hidden document, where none would come', async () => {
-    const frames = fakeFrames();
-    const pacer = createPacer(33, 'message-channel');
-    hidden = true;
-    clock = 1000;
-    expect(await isSettled(pacer.yield())).toBe(true);
-    expect(frames.request).toHaveBeenCalledTimes(1); // the sentinel only
-    pacer.dispose();
-  });
-
-  it('abandons a wait the moment the document becomes hidden, cancelling its frame request', async () => {
-    const frames = fakeFrames();
-    const pacer = createPacer(33, 'message-channel');
-    clock = 40;
-    const waiting = pacer.yield();
-    expect(await isSettled(waiting)).toBe(false);
-
-    // A visibilitychange that leaves the page visible changes nothing.
-    setHidden(false);
-    expect(await isSettled(waiting)).toBe(false);
-
-    setHidden(true);
-    expect(await isSettled(waiting)).toBe(true);
-    // The wait's own frame request was cancelled; only the sentinel is left.
-    expect(frames.cancel).toHaveBeenCalledTimes(1);
-    expect(frames.pending).toBe(1);
-    pacer.dispose();
-  });
-
-  it('gives up on a frame that never comes, then stops forcing waits until it sees one again', async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    const frames = fakeFrames();
-    const pacer = createPacer(33, 'message-channel');
-
-    // Rendering is throttled (an offscreen cross-origin iframe, say): the
-    // forced wait times out instead of hanging the task.
-    clock = 40;
-    const waiting = pacer.yield();
-    vi.advanceTimersByTime(FRAME_TIMEOUT_MS - 1);
-    expect(await isSettledWithFakeTimers(waiting)).toBe(false);
-    vi.advanceTimersByTime(1);
-    await waiting;
-
-    // Stalled: a long-overdue frame no longer forces a wait.
-    clock = 500;
-    expect(await isSettledWithFakeTimers(pacer.yield())).toBe(true);
-
-    // Rendering resumes; the sentinel sees it; waits are forced again.
-    clock = 600;
-    frames.render();
-    clock = 700;
-    const forced = pacer.yield();
-    expect(await isSettledWithFakeTimers(forced)).toBe(false);
-    frames.render();
-    await forced;
-    pacer.dispose();
-  });
-
-  it('dispose() cancels the pending sentinel, is idempotent, and arms no new one', async () => {
-    const frames = fakeFrames();
-    const pacer = createPacer(33, 'message-channel');
-    clock = 10;
     await pacer.yield();
-    expect(frames.pending).toBe(1);
-
+    expect(frames.request).toHaveBeenCalledTimes(2);
     pacer.dispose();
-    pacer.dispose();
-    expect(frames.cancel).toHaveBeenCalledTimes(1);
-    expect(frames.pending).toBe(0);
   });
 
-  it('dispose() after the sentinel has fired has nothing to cancel', async () => {
+  it('never stalls when frames never come — a hidden tab, a throttled iframe, frozen fake timers', async () => {
+    fakeFrames(); // frames are requested but never rendered
+    const pacer = createPacer(33, undefined);
+    const paths: string[] = [];
+    for (let i = 0; i < 20; i++) {
+      clock += 7;
+      paths.push(await yieldVia(pacer));
+    }
+    expect(new Set(paths)).toEqual(new Set(['ordinary']));
+    pacer.dispose();
+  });
+
+  it('with paintIntervalMs: 0, yields behind rendering even right after a frame', async () => {
     const frames = fakeFrames();
-    const pacer = createPacer(33, 'message-channel');
-    clock = 10;
+    const pacer = createPacer(0, undefined);
     await pacer.yield();
     frames.render();
+    expect(await yieldVia(pacer)).toBe('ordinary');
     pacer.dispose();
-    expect(frames.cancel).not.toHaveBeenCalled();
+  });
+
+  it('yields behind rendering with setTimeout, not MessageChannel, when that is the strategy asked for', async () => {
+    fakeFrames();
+    const channels = vi.fn();
+    const RealMessageChannel = MessageChannel;
+    vi.stubGlobal(
+      'MessageChannel',
+      class extends RealMessageChannel {
+        constructor() {
+          super();
+          channels();
+        }
+      },
+    );
+    await createPacer(33, 'set-timeout').yield();
+    expect(channels).not.toHaveBeenCalled();
+    await createPacer(33, 'message-channel').yield();
+    expect(channels).toHaveBeenCalledTimes(1);
   });
 
   it('works with a requestAnimationFrame that calls back synchronously, a common test stub', async () => {
@@ -291,35 +214,39 @@ describe('createPacer() — on the main thread', () => {
     const cancel = vi.fn();
     vi.stubGlobal('requestAnimationFrame', request);
     vi.stubGlobal('cancelAnimationFrame', cancel);
-    const pacer = createPacer(33, 'message-channel');
+    const pacer = createPacer(33, undefined);
 
-    clock = 40;
-    expect(await isSettled(pacer.yield())).toBe(true);
-    // The synchronous sentinel already fired, so it isn't kept as pending:
-    // the next yield arms a fresh one.
-    clock = 50;
+    // The sentinel fires at once, so this very yield sees a fresh frame.
+    expect(await yieldVia(pacer)).toBe('fast');
+    // It isn't kept as pending, so the next yield arms a fresh one.
+    clock = 10;
     await pacer.yield();
     expect(request).toHaveBeenCalledTimes(2);
     pacer.dispose();
     expect(cancel).not.toHaveBeenCalled();
   });
-});
 
-/** isSettled(), for tests that fake setTimeout: flushes with MessageChannel instead. */
-async function isSettledWithFakeTimers(promise: Promise<void>): Promise<boolean> {
-  let settled = false;
-  void promise.then(() => {
-    settled = true;
+  it('dispose() cancels the pending sentinel, is idempotent, and arms no new one', async () => {
+    const frames = fakeFrames();
+    const pacer = createPacer(33, undefined);
+    await pacer.yield();
+    expect(frames.pending).toBe(1);
+
+    pacer.dispose();
+    pacer.dispose();
+    expect(frames.cancel).toHaveBeenCalledTimes(1);
+    expect(frames.pending).toBe(0);
+
+    await pacer.yield();
+    expect(frames.request).toHaveBeenCalledTimes(1);
   });
-  for (let i = 0; i < 3; i++) {
-    await new Promise<void>((resolve) => {
-      const channel = new MessageChannel();
-      channel.port1.onmessage = () => {
-        channel.port1.close();
-        resolve();
-      };
-      channel.port2.postMessage(null);
-    });
-  }
-  return settled;
-}
+
+  it('dispose() after the sentinel has fired has nothing to cancel', async () => {
+    const frames = fakeFrames();
+    const pacer = createPacer(33, undefined);
+    await pacer.yield();
+    frames.render();
+    pacer.dispose();
+    expect(frames.cancel).not.toHaveBeenCalled();
+  });
+});

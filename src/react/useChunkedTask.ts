@@ -17,12 +17,13 @@ export interface UseChunkedTaskOptions<T, R> {
   /** Max ms of uninterrupted work before yielding. Default 5. */
   readonly timeSliceMs?: number;
   /**
-   * The longest the task may keep the page from painting, in ms. Default
+   * How long, in ms, the task may keep resuming ahead of rendering. Default
    * 33, about 30 frames a second: once that long has passed since the last
-   * frame, the next yield waits for one to render. `Infinity` turns it off
-   * for the most throughput — in Chromium the page then paints only about
-   * every 100 ms while the task runs, though input is still answered
-   * promptly. Changing it sets up a new run, like `timeSliceMs`.
+   * frame, the task yields behind rendering until the next one paints.
+   * `Infinity` turns it off for the most throughput — in Chromium the page
+   * then paints only about every 100 ms while the task runs, though input
+   * is still answered promptly. `0` always yields behind rendering.
+   * Changing it sets up a new run, like `timeSliceMs`.
    */
   readonly paintIntervalMs?: number;
   /**

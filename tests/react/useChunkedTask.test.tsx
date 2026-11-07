@@ -341,6 +341,24 @@ describe('useChunkedTask() — reactivity contract', () => {
 });
 
 describe('useChunkedTask() — unmount', () => {
+  it('calls no onYield after unmount, even with a yield in flight', async () => {
+    const items = Array.from({ length: 200 }, (_, i) => i);
+    const onYield = vi.fn();
+    const { result, unmount } = renderHook(() =>
+      useChunkedTask(items, costly(1), { timeSliceMs: 0.0001, onYield }),
+    );
+    await waitFor(() => {
+      expect(result.current.processed).toBeGreaterThan(0);
+    });
+
+    // The loop is always awaiting a yield whenever test code runs, so this
+    // unmount lands mid-yield — the case that used to call onYield once more.
+    unmount();
+    const callsAtUnmount = onYield.mock.calls.length;
+    await sleep(30);
+    expect(onYield.mock.calls.length).toBe(callsAtUnmount);
+  });
+
   it('cancels the in-flight task on unmount and stops making further progress', async () => {
     const items = Array.from({ length: 200 }, (_, i) => i);
     const processItem = vi.fn(costly(1));
