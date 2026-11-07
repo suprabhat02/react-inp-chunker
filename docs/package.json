@@ -15,15 +15,15 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-inp-chunker": "^0.4.0",
-    "react-smart-copy": "1.24.0",
+    "react-smart-copy": "1.25.1",
     "sugar-high": "2.6.4"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^6.1.2",
-    "oxlint": "^1.88.0",
+    "@vitejs/plugin-react": "^6.2.1",
+    "oxlint": "^1.91.0",
     "typescript": "~7.0.2",
     "vite": "^8.3.4"
   },
