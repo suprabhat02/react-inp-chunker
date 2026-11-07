@@ -215,3 +215,7 @@ jobs:
       # for the MessageChannel fallback.
       - name: Yielding behaviour in Chromium and WebKit
         run: npm run test:browser
+        # The script defaults to Chromium alone, so without this the WebKit
+        # installed above was never launched.
+        env:
+          BROWSERS: chromium,webkit
