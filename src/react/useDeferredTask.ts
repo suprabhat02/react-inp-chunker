@@ -14,6 +14,12 @@ export interface UseDeferredTaskOptions {
   /** Max ms of uninterrupted work before yielding. Default 5. */
   readonly timeSliceMs?: number;
   /**
+   * The longest the task may keep the page from painting, in ms. Default
+   * 33; `Infinity` turns it off. See the identical option on
+   * `useChunkedTask`. Changing it sets up a new run.
+   */
+  readonly paintIntervalMs?: number;
+  /**
    * Generator segments to run between clock checks. Default 1. Raise it
    * only for segments measured in nanoseconds; a slice can then run up to
    * `batchSize` segments past its budget.
@@ -99,6 +105,7 @@ export function useDeferredTask<T>(
 ): UseDeferredTaskState<T> {
   const {
     timeSliceMs,
+    paintIntervalMs,
     batchSize,
     autoStart = true,
     onSlice,
@@ -132,6 +139,7 @@ export function useDeferredTask<T>(
         onSlice: stableOnSlice,
         onYield: stableOnYield,
         ...(timeSliceMs !== undefined ? { timeSliceMs } : {}),
+        ...(paintIntervalMs !== undefined ? { paintIntervalMs } : {}),
         ...(batchSize !== undefined ? { batchSize } : {}),
         ...(signal !== undefined ? { signal } : {}),
       });
@@ -150,7 +158,7 @@ export function useDeferredTask<T>(
     // caller-supplied array, the same pattern (and the same reason it can't
     // be statically verified) as useMemo/useEffect's own deps parameter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [...deps, timeSliceMs, batchSize, autoStart, signal, controller],
+    [...deps, timeSliceMs, paintIntervalMs, batchSize, autoStart, signal, controller],
   );
 
   const start = useCallback(() => controller.getCurrent()?.start(), [controller]);

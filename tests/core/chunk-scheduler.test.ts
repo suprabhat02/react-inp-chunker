@@ -715,3 +715,80 @@ describe('createChunkScheduler() — concurrent independent schedulers', () => {
     expect(resultB.results).toEqual(itemsB);
   });
 });
+
+describe('createChunkScheduler() — the first item waits for a yield', () => {
+  it('runs no item synchronously inside start(), so the update that started it can paint first', async () => {
+    const processItem = vi.fn((x: number) => x);
+    const scheduler = createChunkScheduler({ items: [1, 2, 3], processItem });
+    scheduler.start();
+    expect(scheduler.getSnapshot().status).toBe('processing');
+    expect(processItem).not.toHaveBeenCalled();
+
+    const result = await scheduler.settled;
+    expect(result.status).toBe('done');
+    expect(processItem).toHaveBeenCalledTimes(3);
+  });
+
+  it('still settles an empty task synchronously, inside start()', () => {
+    const scheduler = createChunkScheduler({ items: [], processItem: (x: number) => x });
+    scheduler.start();
+    expect(scheduler.getSnapshot().status).toBe('done');
+    expect(scheduler.getResults()).toEqual([]);
+  });
+
+  it('runs no item at all when cancelled before that first yield resolves', async () => {
+    const processItem = vi.fn((x: number) => x);
+    const scheduler = createChunkScheduler({ items: [1, 2, 3], processItem });
+    scheduler.start();
+    scheduler.cancel();
+    const result = await scheduler.settled;
+    expect(result.status).toBe('cancelled');
+    expect(result.results).toEqual([]);
+    expect(processItem).not.toHaveBeenCalled();
+  });
+});
+
+describe('createChunkScheduler() — a throwing subscriber', () => {
+  it('cannot stop the task from settling, nor stop other subscribers hearing about it', async () => {
+    const reported: unknown[] = [];
+    vi.stubGlobal('reportError', (error: unknown) => reported.push(error));
+    const scheduler = createChunkScheduler({
+      items: [1, 2, 3],
+      processItem: (x: number) => x * 2,
+    });
+    scheduler.subscribe(() => {
+      throw new Error(`broken subscriber saw ${scheduler.getSnapshot().status}`);
+    });
+    const seen: string[] = [];
+    scheduler.subscribe(() => seen.push(scheduler.getSnapshot().status));
+
+    // Used to throw straight out of start(), with the loop never started.
+    expect(() => {
+      scheduler.start();
+    }).not.toThrow();
+    const result = await scheduler.settled;
+
+    expect(result).toEqual({ status: 'done', results: [2, 4, 6] });
+    expect(seen.at(0)).toBe('processing');
+    expect(seen.at(-1)).toBe('done');
+    expect(reported.length).toBeGreaterThanOrEqual(2);
+    expect(reported.at(-1)).toEqual(new Error('broken subscriber saw done'));
+    vi.unstubAllGlobals();
+  });
+});
+
+describe('createChunkScheduler() — paused before the first item', () => {
+  it('runs nothing until resumed when pause() lands during the first yield', async () => {
+    const processItem = vi.fn((x: number) => x);
+    const scheduler = createChunkScheduler({ items: [1, 2, 3], processItem });
+    scheduler.start();
+    scheduler.pause();
+    await sleep(10);
+    expect(scheduler.getSnapshot().status).toBe('paused');
+    expect(processItem).not.toHaveBeenCalled();
+
+    scheduler.resume();
+    const result = await scheduler.settled;
+    expect(result).toEqual({ status: 'done', results: [1, 2, 3] });
+  });
+});

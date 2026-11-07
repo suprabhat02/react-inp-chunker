@@ -4,6 +4,73 @@ All notable changes to this package are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); this package
 follows [Semantic Versioning](https://semver.org/).
 
+## 0.5.0 — 2026-11-07
+
+Scheduling that plays fair with rendering, and two ways a task could hang,
+closed. Both scheduling changes came out of the
+[benchmark app](bench/inp-demo/README.md): measured over 80 runs per variant
+(two passes, opposite orders) against 0.4.0 in the same session — headless
+Chromium 153, 4× CPU throttling, 20,000 rows — the click that starts a task
+reaches its next frame in a median 6.6 ms instead of 11.1 ms, and the longest
+gap between frames while the task runs drops from 107 ms to 55 ms. Total time
+moves from 334 ms to 346 ms, inside the run-to-run spread.
+
+### Changed
+
+- **The first item (or generator segment) now runs after one yield, never
+  inside `start()`.** A task is usually started from an effect, and React
+  runs the effects of an update caused by a click before the browser paints —
+  so the first slice used to sit between the click and its frame. A task with
+  no items still settles synchronously. If your own tests started a task and
+  then read `onItem` side effects (or `processItem` calls) synchronously, they
+  now need to await a tick, or `waitFor` them; and `createDeferredTask` now
+  calls its `task` factory at that point too, not inside `start()`.
+- **Paint-aware pacing, on by default.** `scheduler.yield()` resumes the work
+  ahead of other queued tasks, which in Chromium includes rendering: on its
+  own the page painted only when the browser's starvation guard stepped in,
+  about every 100 ms — a click still got its frame promptly, but a progress
+  bar or anything else on screen updated at around 10 frames a second. Now,
+  once `paintIntervalMs` (33 ms) has passed without a frame, the next yield
+  waits for one. Frames the browser renders on its own count, so where
+  rendering already interleaves with the yields (a `MessageChannel` yield,
+  Safari) nothing is forced. Off the main thread, in a hidden tab and in a
+  throttled iframe, it steps aside rather than wait for a frame that won't
+  come.
+- Size budgets raised for the above: `createChunkScheduler` 1.47 kB → 1.9 kB,
+  `useChunkedTask` 2.03 kB → 2.49 kB, `useDeferredTask` 1.83 kB → 2.28 kB
+  (minified, brotli-compressed). Most of it is browser API names a minifier
+  can't shorten.
+
+### Added
+
+- **`paintIntervalMs`** on both hooks and both core engines, and
+  **`DEFAULT_PAINT_INTERVAL_MS`** (33) from `react-inp-chunker/core`. Lower it
+  for smoother animation while the work runs; `Infinity` turns pacing off for
+  the most throughput.
+
+### Fixed
+
+- **A subscriber that threw could hang a task.** Listeners were called in a
+  plain loop, so one that threw stopped every listener after it — React's own
+  `useSyncExternalStore` subscriber among them — and the exception escaped
+  into the engine: thrown out of `start()` before the loop ran, or out of the
+  final `done` notification before `settled` resolved, leaving it pending
+  forever. Each listener is now isolated: a throw is reported the way a
+  throwing event listener's is (`reportError()`, or rethrown from a microtask
+  where that doesn't exist) and every other listener still runs.
+- **`createDeferredTask` (and `useDeferredTask`) hung if the `task` factory
+  threw.** It was called outside the loop's error handling, so the task stayed
+  `processing` with `settled` never resolving, and an unhandled rejection was
+  all anyone saw. The task now settles as an error, like a throw from inside
+  the generator.
+- The development warning for an item that blocks for more than 50 ms never
+  judged the _first_ item, which it used as its baseline. It does now.
+- The `onError` documentation said omitting `onItem`, rather than `onError`,
+  defaults to `'abort'`.
+- `SECURITY.md`'s supported-versions table named a specific minor version and
+  went stale with every release (it said 0.3.x while 0.4.0 was current). It
+  now says what it means: the latest minor release.
+
 ## 0.4.0 — 2026-11-04
 
 Type safety and supply-chain hardening: the return shapes you were already

@@ -7,13 +7,14 @@ import {
   transition,
 } from './chunk-machine.js';
 import { createDiagnostics, isDevelopment, warnDev } from './diagnostics.js';
+import { notifyAll } from './listeners.js';
+import { createPacer, normalizePaintIntervalMs } from './pacer.js';
 import {
   type YieldStrategy,
   normalizeBatchSize,
   normalizeTimeSliceMs,
   now,
   resolveInputPending,
-  yieldToMain,
 } from './scheduler.js';
 
 export interface ChunkSchedulerOptions<T, R> {
@@ -21,6 +22,23 @@ export interface ChunkSchedulerOptions<T, R> {
   readonly processItem: (item: T, index: number) => R;
   /** Max ms of uninterrupted work before yielding. Default 5. */
   readonly timeSliceMs?: number;
+  /**
+   * The longest the task may keep the page from painting, in ms. Default
+   * 33, about 30 frames a second.
+   *
+   * Between slices the task yields with `scheduler.yield()` where it can,
+   * which resumes the work ahead of other queued tasks — and, in Chromium,
+   * ahead of rendering, so on its own the page would paint only about every
+   * 100 ms while the task runs. Once this much time has passed since the
+   * last frame, the next yield waits for a frame to render first. Frames
+   * the browser renders on its own count too, so where rendering already
+   * interleaves with the yields this costs nothing.
+   *
+   * `Infinity` turns it off: the most throughput, at the price of those
+   * ~100 ms paint gaps in Chromium. Input is answered promptly either way.
+   * Has no effect off the main thread (Node, workers) or in a hidden tab.
+   */
+  readonly paintIntervalMs?: number;
   /**
    * Items to process between clock checks. Default 1, which bounds a slice
    * at one item: the safe choice, and the right one unless profiling says
@@ -50,7 +68,7 @@ export interface ChunkSchedulerOptions<T, R> {
    * and keep going — its index and error are recorded in `skipped`, on both
    * the live snapshot and the settled result — or return `'abort'` to end
    * the task the way it always has, as an `'error'` result carrying
-   * whatever was collected before the throw. Omitting `onItem` defaults to
+   * whatever was collected before the throw. Omitting `onError` defaults to
    * `'abort'`, so existing callers see no behavior change.
    *
    * Only ever called for `processItem` throwing. An `onItem` that throws
@@ -214,6 +232,7 @@ export function createChunkScheduler<T, R>(
   const { items, processItem, onItem, onError, signal, yieldStrategy, onSlice, onYield } =
     options;
   const timeSliceMs = normalizeTimeSliceMs(options.timeSliceMs);
+  const paintIntervalMs = normalizePaintIntervalMs(options.paintIntervalMs);
   const batchSize = normalizeBatchSize(options.batchSize);
   const collectResults = options.collectResults ?? true;
   const total = items.length;
@@ -279,7 +298,7 @@ export function createChunkScheduler<T, R>(
   }
 
   function notify(): void {
-    for (const listener of listeners) listener();
+    notifyAll(listeners);
   }
 
   function getSnapshot(): ChunkSnapshot<R> {
@@ -408,10 +427,19 @@ export function createChunkScheduler<T, R>(
   }
 
   async function runLoop(): Promise<void> {
-    let sliceStartedAt = now();
+    const pacer = createPacer(paintIntervalMs, yieldStrategy);
     let index = 0;
 
     try {
+      // Yield before the first item, not only after the first slice. A task
+      // is usually started from an effect, and React runs the effects of an
+      // update caused by a click before the browser paints — so a first
+      // slice run right here would sit between the click and its frame.
+      // An empty task has nothing to make room for and settles at once.
+      if (total > 0) await pacer.yield();
+      let sliceStartedAt = now();
+      if (isDevelopment) diagnostics.resumed(sliceStartedAt, index);
+
       while (index < total) {
         // Re-read on every pass rather than trusting a single wake from the
         // pause gate: a resume() can be undone by a *reentrant* pause()
@@ -471,9 +499,7 @@ export function createChunkScheduler<T, R>(
         if (checkedAt - sliceStartedAt >= timeSliceMs || inputPending()) {
           if (isDevelopment) diagnostics.sliceEnded(checkedAt, index);
           onSlice?.(checkedAt - sliceStartedAt, index);
-          await yieldToMain(
-            yieldStrategy !== undefined ? { strategy: yieldStrategy } : undefined,
-          );
+          await pacer.yield();
           notify(); // surface the progress made during this slice
           sliceStartedAt = now();
           onYield?.();
@@ -485,6 +511,8 @@ export function createChunkScheduler<T, R>(
       dispatch({ type: 'ERROR', error });
       settleWith('error', published, error);
       return;
+    } finally {
+      pacer.dispose();
     }
 
     if (machineState.status === 'cancelled') {

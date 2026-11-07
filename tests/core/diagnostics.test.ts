@@ -77,6 +77,22 @@ describe('development diagnostics', () => {
     expect(longTaskWarnings[0]).toContain('development only');
   });
 
+  it('catches a slow first item too, which the warning used to treat as its baseline', async () => {
+    const clock = virtualClock();
+    const scheduler = createChunkScheduler({
+      items: [0, 1, 2],
+      processItem: (_item: number, index: number) => {
+        clock.advance(index === 0 ? 61 : 0.1);
+      },
+    });
+    scheduler.start();
+    await scheduler.settled;
+
+    const longTaskWarnings = messages().filter((message) => message.includes('61ms'));
+    expect(longTaskWarnings).toHaveLength(1);
+    expect(longTaskWarnings[0]).toContain('index 0');
+  });
+
   it('warns only once however many slow items follow', async () => {
     const clock = virtualClock();
     const scheduler = createChunkScheduler({

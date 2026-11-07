@@ -7,6 +7,27 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Burns real wall-clock time. The first item runs only after one yield, so
+ * a task of free items is finished long before `waitFor`'s 50 ms poll can
+ * catch it in flight; a real per-item cost is what keeps the
+ * "mid-processing" tests honest without leaning on start-up timing.
+ */
+function spin(ms: number): void {
+  const until = performance.now() + ms;
+  while (performance.now() < until) {
+    // Deliberately busy: this stands in for real work.
+  }
+}
+
+/** An identity `processItem` that costs `ms` of real time per item. */
+function costly(ms: number): (x: number) => number {
+  return (x) => {
+    spin(ms);
+    return x;
+  };
+}
+
 describe('useChunkedTask() — autoStart (default)', () => {
   // `items` MUST be a stable reference across re-renders in every test
   // below: the hook restarts the task whenever the `items` identity
@@ -73,7 +94,7 @@ describe('useChunkedTask() — signal', () => {
     const items = Array.from({ length: 100 }, (_, i) => i);
     const controller = new AbortController();
     const { result } = renderHook(() =>
-      useChunkedTask(items, (x: number) => x, {
+      useChunkedTask(items, costly(2), {
         timeSliceMs: 0.0001,
         signal: controller.signal,
       }),
@@ -97,7 +118,7 @@ describe('useChunkedTask() — signal', () => {
     const items = Array.from({ length: 100 }, (_, i) => i);
     const controller = new AbortController();
     const { result } = renderHook(() =>
-      useChunkedTask(items, (x: number) => x, {
+      useChunkedTask(items, costly(2), {
         timeSliceMs: 0.0001,
         signal: controller.signal,
       }),
@@ -145,7 +166,7 @@ describe('useChunkedTask() — pause / resume / cancel via the hook', () => {
     const items = Array.from({ length: 50 }, (_, i) => i);
     const processed: number[] = [];
     const { result } = renderHook(() =>
-      useChunkedTask(items, (x: number) => x, {
+      useChunkedTask(items, costly(4), {
         timeSliceMs: 0.0001,
         onItem: (r: number) => processed.push(r),
       }),
@@ -180,7 +201,7 @@ describe('useChunkedTask() — pause / resume / cancel via the hook', () => {
   it('cancel() mid-processing settles as isCancelled', async () => {
     const items = Array.from({ length: 100 }, (_, i) => i);
     const { result } = renderHook(() =>
-      useChunkedTask(items, (x: number) => x, { timeSliceMs: 0.0001 }),
+      useChunkedTask(items, costly(2), { timeSliceMs: 0.0001 }),
     );
 
     await waitFor(() => {
@@ -251,7 +272,7 @@ describe('useChunkedTask() — reactivity contract', () => {
 
     const { result, rerender } = renderHook(
       ({ onItem }: { onItem: (x: number) => void }) =>
-        useChunkedTask(items, (x: number) => x, { timeSliceMs: 0.0001, onItem }),
+        useChunkedTask(items, costly(5), { timeSliceMs: 0.0001, onItem }),
       { initialProps: { onItem: (x: number) => seenByFirst.push(x) } },
     );
 
@@ -292,12 +313,37 @@ describe('useChunkedTask() — reactivity contract', () => {
     });
     expect(result.current.results).toEqual([1, 2, 3]);
   });
+
+  it('paintIntervalMs changing restarts the task, like the other scheduling options', async () => {
+    const items = [1, 2, 3];
+    const processItem = vi.fn((x: number) => x);
+    const { result, rerender } = renderHook(
+      ({ paintIntervalMs }: { paintIntervalMs: number }) =>
+        useChunkedTask(items, processItem, { paintIntervalMs }),
+      { initialProps: { paintIntervalMs: 33 } },
+    );
+    await waitFor(() => {
+      expect(result.current.isDone).toBe(true);
+    });
+    expect(processItem).toHaveBeenCalledTimes(3);
+
+    rerender({ paintIntervalMs: Infinity });
+    // Counting calls proves a second run happened, rather than the old
+    // run's `done` simply still being on screen.
+    await waitFor(() => {
+      expect(processItem).toHaveBeenCalledTimes(6);
+    });
+    await waitFor(() => {
+      expect(result.current.isDone).toBe(true);
+    });
+    expect(result.current.results).toEqual([1, 2, 3]);
+  });
 });
 
 describe('useChunkedTask() — unmount', () => {
   it('cancels the in-flight task on unmount and stops making further progress', async () => {
     const items = Array.from({ length: 200 }, (_, i) => i);
-    const processItem = vi.fn((x: number) => x);
+    const processItem = vi.fn(costly(1));
     const { result, unmount } = renderHook(() =>
       useChunkedTask(items, processItem, { timeSliceMs: 0.0001 }),
     );

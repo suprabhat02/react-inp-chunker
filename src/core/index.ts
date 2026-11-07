@@ -24,6 +24,8 @@ export type {
 } from './deferred-task.js';
 export { createDeferredTask } from './deferred-task.js';
 
+export { DEFAULT_PAINT_INTERVAL_MS } from './pacer.js';
+
 export type {
   ShouldYieldOptions,
   YieldStrategy,

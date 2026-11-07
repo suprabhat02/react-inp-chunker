@@ -7,13 +7,14 @@ import {
   transition,
 } from './chunk-machine.js';
 import { createDiagnostics, isDevelopment } from './diagnostics.js';
+import { notifyAll } from './listeners.js';
+import { createPacer, normalizePaintIntervalMs } from './pacer.js';
 import {
   type YieldStrategy,
   normalizeBatchSize,
   normalizeTimeSliceMs,
   now,
   resolveInputPending,
-  yieldToMain,
 } from './scheduler.js';
 
 /**
@@ -43,6 +44,12 @@ export interface DeferredTaskOptions<T> {
   readonly task: () => DeferredGenerator<T>;
   /** Max ms of uninterrupted work before yielding. Default 5. */
   readonly timeSliceMs?: number;
+  /**
+   * The longest the task may keep the page from painting, in ms. Default 33;
+   * `Infinity` turns it off. See the identical option on
+   * `createChunkScheduler`.
+   */
+  readonly paintIntervalMs?: number;
   /**
    * Segments (the code between two `yield`s) to run between clock checks.
    * Default 1, which bounds a slice at one segment.
@@ -137,6 +144,7 @@ export interface DeferredTask<T> {
 export function createDeferredTask<T>(options: DeferredTaskOptions<T>): DeferredTask<T> {
   const { task, signal, yieldStrategy, onSlice, onYield } = options;
   const timeSliceMs = normalizeTimeSliceMs(options.timeSliceMs);
+  const paintIntervalMs = normalizePaintIntervalMs(options.paintIntervalMs);
   const batchSize = normalizeBatchSize(options.batchSize);
   // Resolved once per task rather than per segment; see chunk-scheduler.ts.
   const inputPending = resolveInputPending();
@@ -188,7 +196,7 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
   }
 
   function notify(): void {
-    for (const listener of listeners) listener();
+    notifyAll(listeners);
   }
 
   function getSnapshot(): DeferredTaskSnapshot<T> {
@@ -300,15 +308,28 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
   }
 
   async function runLoop(): Promise<void> {
-    let sliceStartedAt = now();
+    const pacer = createPacer(paintIntervalMs, yieldStrategy);
     let segment = 0;
-    const generator = task();
+    // Created lazily, just before the first segment runs — inside the try,
+    // after the first yield. A `task` that does its own synchronous setup
+    // before returning the generator then runs that after the paint too,
+    // and not at all if the task is cancelled first; and one that throws
+    // ends the task as an error. (It used to be called up here, outside the
+    // try: a throwing factory left the task processing forever, with
+    // `settled` never resolving.)
+    let generator: DeferredGenerator<T> | undefined;
 
     // `step` always holds the result of the *last* generator.next() call —
     // including, on an early break below, a stale not-done step from before
     // that break, which the post-loop checks account for explicitly.
     let step: IteratorResult<void, T> = { done: false, value: undefined };
     try {
+      // Yield before the first segment — see the same step in
+      // createChunkScheduler's loop for why.
+      await pacer.yield();
+      let sliceStartedAt = now();
+      if (isDevelopment) diagnostics.resumed(sliceStartedAt, segment);
+
       for (;;) {
         // Captured once per iteration and compared via this local, not via
         // repeated `machineState.status` property reads — narrowing a
@@ -318,7 +339,7 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
         // under us while it's pending.
         const status: ChunkStatus = machineState.status;
         if (status === 'cancelled') {
-          generator.return(undefined as unknown as T);
+          generator?.return(undefined as unknown as T);
           break;
         }
 
@@ -353,6 +374,7 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
         // batchSize of 1 this runs exactly one segment, then checks.
         let done = false;
         for (let inBatch = 0; inBatch < batchSize; inBatch++) {
+          generator ??= task();
           step = generator.next();
           segment += 1;
           if (step.done) {
@@ -370,9 +392,7 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
         if (checkedAt - sliceStartedAt >= timeSliceMs || inputPending()) {
           if (isDevelopment) diagnostics.sliceEnded(checkedAt, segment);
           onSlice?.(checkedAt - sliceStartedAt, segment);
-          await yieldToMain(
-            yieldStrategy !== undefined ? { strategy: yieldStrategy } : undefined,
-          );
+          await pacer.yield();
           notify();
           sliceStartedAt = now();
           onYield?.();
@@ -383,6 +403,8 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
       dispatch({ type: 'ERROR', error });
       settleWith('error', undefined, error);
       return;
+    } finally {
+      pacer.dispose();
     }
 
     if (machineState.status === 'cancelled') {

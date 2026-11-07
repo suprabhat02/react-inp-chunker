@@ -36,6 +36,20 @@ has:
    that nested `setTimeout` calls get.
 3. `setTimeout(0)` as the last resort.
 
+Two things on top of that, both measured in the
+[benchmark app](bench/inp-demo/README.md):
+
+- **The update that starts a task paints first.** The first item runs only after
+  one yield. React runs the effects of a click's update before the browser
+  paints, so a first slice run straight away would sit between the click and
+  its frame.
+- **The page keeps painting.** `scheduler.yield()` resumes the work ahead of
+  other tasks — in Chromium, ahead of rendering too, so on its own the page
+  would paint only about every 100 ms while the work runs. Once
+  `paintIntervalMs` (33 ms by default) has passed without a frame, the next
+  yield waits for one. Frames the browser renders on its own count, so where
+  rendering already interleaves this costs nothing.
+
 No dependencies beyond React. The scheduling engine (`react-inp-chunker/core`)
 doesn't import React at all, so it also works in plain TypeScript, a Web Worker or
 a Node script.
@@ -75,26 +89,27 @@ item. Your component re-renders with progress once per slice, not once per item.
 
 - `scoreRow` can be a fresh closure every render: the latest one always runs,
   without restarting the task.
-- What _does_ restart it is `rows` becoming a new array reference, or
-  `timeSliceMs`/`autoStart` changing. Memoize derived arrays.
+- What _does_ restart it is `rows` becoming a new array reference, or a
+  scheduling option (`timeSliceMs`, `paintIntervalMs`, `batchSize`,
+  `collectResults`, `autoStart`, `signal`) changing. Memoize derived arrays.
 - Pass `{ autoStart: false }` to wait for `start()`, and `onItem` to consume
   results while the task is still running. `pause()`, `resume()` and `cancel()`
   work at any point, and unmounting cancels.
 - `results` is `undefined` until the task settles, and is then set in the same
   render that first reports `done`, `cancelled` or `error` — never a render
   later, so there is nothing to tear under concurrent React.
-- The return type is discriminated on `status`: narrowing it (`task.status ===
-'done'`, or a `switch`) narrows `results`/`error` along with it, so the
-  `=== undefined` check above is a choice, not a requirement — the `is*`
-  booleans don't narrow on their own, since they're separate fields from
-  `status` as far as the type checker is concerned.
+- The return type is discriminated on `status`: narrowing it, with an `if` on
+  `task.status` or a `switch`, narrows `results` and `error` along with it, so
+  an `=== undefined` check is a choice, not a requirement. The `is*` booleans
+  don't narrow on their own: to the type checker they're separate fields.
 
-Two options exist for work at the extremes, and most code needs neither:
+Three options exist for work at the extremes, and most code needs none of them:
 
-| Option                    | Default | Use it when                                                                                                                                                         |
-| ------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `batchSize: number`       | `1`     | An item takes nanoseconds, so reading the clock costs more than the work. A slice may then overrun its budget by up to `batchSize` items — that is the whole trade. |
-| `collectResults: boolean` | `true`  | You already take results through `onItem` and don't want a million-entry array retained. `results` settles as an empty array.                                       |
+| Option                    | Default | Use it when                                                                                                                                                                                                                                                                                           |
+| ------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `batchSize: number`       | `1`     | An item takes nanoseconds, so reading the clock costs more than the work. A slice may then overrun its budget by up to `batchSize` items — that is the whole trade.                                                                                                                                   |
+| `collectResults: boolean` | `true`  | You already take results through `onItem` and don't want a million-entry array retained. `results` settles as an empty array.                                                                                                                                                                         |
+| `paintIntervalMs: number` | `33`    | Something on screen animates while the work runs and needs more than ~30 frames a second (lower it), or nothing on screen changes and you want the last few percent of throughput (`Infinity`: Chromium then paints about every 100 ms while the task runs, though input is still answered promptly). |
 
 Three more exist for running this against data you don't fully trust, or in production:
 
@@ -197,8 +212,8 @@ Dropping any of these is a breaking change; [SUPPORT.md](SUPPORT.md) has the
 versioning rules.
 
 **Size**, minified and brotli-compressed, with no dependencies of its own:
-`useChunkedTask` 2.03 kB, `useDeferredTask` 1.83 kB, `createChunkScheduler`
-without React 1.47 kB, everything together 2.61 kB. CI fails if a change pushes
+`useChunkedTask` 2.49 kB, `useDeferredTask` 2.28 kB, `createChunkScheduler`
+without React 1.9 kB, everything together 3.1 kB. CI fails if a change pushes
 any of them over budget.
 
 Bundlers that set the `production` export condition — webpack, Vite, Rspack,
@@ -207,9 +222,13 @@ merely guarded by a flag.
 
 **What it guarantees.** A slice overruns by at most one item (or `batchSize`
 items, if you raised it), because the clock is read after every item rather than
-on an average. A settled task never reports its results a render late. Nothing
-runs after `cancel()`, no state update arrives after unmount, and `settled`
-resolves exactly once and never rejects. The loop allocates nothing per item.
+on an average. No item runs inside `start()`: the task yields once first (one
+with no items settles straight away). A settled task never reports its results a
+render late. Nothing runs after `cancel()`, no state update arrives after
+unmount, and `settled` resolves exactly once and never rejects — even when a
+subscriber throws (the error is reported, the way a throwing event listener's
+is, and every other subscriber still hears every update). The loop allocates
+nothing per item.
 
 **Supply chain.** Published from CI through npm Trusted Publishing, so no
 long-lived token exists to leak, with signed provenance you can verify yourself:

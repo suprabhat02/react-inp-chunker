@@ -17,6 +17,15 @@ export interface UseChunkedTaskOptions<T, R> {
   /** Max ms of uninterrupted work before yielding. Default 5. */
   readonly timeSliceMs?: number;
   /**
+   * The longest the task may keep the page from painting, in ms. Default
+   * 33, about 30 frames a second: once that long has passed since the last
+   * frame, the next yield waits for one to render. `Infinity` turns it off
+   * for the most throughput — in Chromium the page then paints only about
+   * every 100 ms while the task runs, though input is still answered
+   * promptly. Changing it sets up a new run, like `timeSliceMs`.
+   */
+  readonly paintIntervalMs?: number;
+  /**
    * Items to process between clock checks. Default 1. Raise it only for
    * items measured in nanoseconds, where reading the clock costs more than
    * the work; a slice can then run up to `batchSize` items past its budget.
@@ -130,8 +139,9 @@ const IDLE_STATUS = 'idle';
  * `processItem` and `onItem` can be fresh closures every render — the hook
  * always calls the latest version (via `useEffectEvent`) without that
  * causing the task to restart. What *does* restart the task is `items`
- * changing identity (a new array reference), or `timeSliceMs`/`autoStart`
- * changing. That's deliberate: a new `items` array means new work, and
+ * changing identity (a new array reference), or any of the other scheduling
+ * options — `timeSliceMs`, `paintIntervalMs`, `batchSize`, `collectResults`,
+ * `autoStart`, `signal` — changing. That's deliberate: a new `items` array means new work, and
  * memoizing it when you don't want that is the caller's call to make, the
  * same as any other React dependency.
  */
@@ -142,6 +152,7 @@ export function useChunkedTask<T, R>(
 ): UseChunkedTaskState<R> {
   const {
     timeSliceMs,
+    paintIntervalMs,
     batchSize,
     collectResults,
     autoStart = true,
@@ -202,6 +213,7 @@ export function useChunkedTask<T, R>(
       onSlice: stableOnSlice,
       onYield: stableOnYield,
       ...(timeSliceMs !== undefined ? { timeSliceMs } : {}),
+      ...(paintIntervalMs !== undefined ? { paintIntervalMs } : {}),
       ...(batchSize !== undefined ? { batchSize } : {}),
       ...(collectResults !== undefined ? { collectResults } : {}),
       ...(signal !== undefined ? { signal } : {}),
@@ -220,7 +232,16 @@ export function useChunkedTask<T, R>(
     // from the reactive dependency set
     // (that's the whole point of useEffectEvent) rather than omitted by
     // oversight.
-  }, [items, timeSliceMs, batchSize, collectResults, autoStart, signal, controller]);
+  }, [
+    items,
+    timeSliceMs,
+    paintIntervalMs,
+    batchSize,
+    collectResults,
+    autoStart,
+    signal,
+    controller,
+  ]);
 
   const start = useCallback(() => controller.getCurrent()?.start(), [controller]);
   const pause = useCallback(() => controller.getCurrent()?.pause(), [controller]);

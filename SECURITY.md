@@ -5,10 +5,10 @@
 Security fixes land on the latest minor release. There are no long-term
 support branches: upgrade to the current version to receive them.
 
-| Version | Supported |
-| ------- | --------- |
-| 0.3.x   | Yes       |
-| < 0.3   | No        |
+| Version                                                                     | Supported |
+| --------------------------------------------------------------------------- | --------- |
+| The [latest minor release](https://www.npmjs.com/package/react-inp-chunker) | Yes       |
+| Anything older                                                              | No        |
 
 ## Reporting a vulnerability
 

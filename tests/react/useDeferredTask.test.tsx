@@ -8,8 +8,26 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function* countingTask(n: number, progress: number[]): DeferredGenerator<number> {
+/**
+ * Burns real wall-clock time. The first segment runs only after one yield,
+ * so a task of free segments is finished long before `waitFor`'s 50 ms poll
+ * can catch it in flight; a real per-segment cost is what keeps the
+ * "mid-processing" tests honest without leaning on start-up timing.
+ */
+function spin(ms: number): void {
+  const until = performance.now() + ms;
+  while (performance.now() < until) {
+    // Deliberately busy: this stands in for real work.
+  }
+}
+
+function* countingTask(
+  n: number,
+  progress: number[],
+  segmentMs = 0,
+): DeferredGenerator<number> {
   for (let i = 0; i < n; i++) {
+    if (segmentMs > 0) spin(segmentMs);
     progress.push(i);
     yield;
   }
@@ -21,7 +39,7 @@ describe('useDeferredTask() — signal', () => {
     const progress: number[] = [];
     const controller = new AbortController();
     const { result } = renderHook(() =>
-      useDeferredTask(() => countingTask(100, progress), [], {
+      useDeferredTask(() => countingTask(100, progress, 2), [], {
         timeSliceMs: 0.0001,
         signal: controller.signal,
       }),
@@ -45,7 +63,7 @@ describe('useDeferredTask() — signal', () => {
     const progress: number[] = [];
     const controller = new AbortController();
     const { result } = renderHook(() =>
-      useDeferredTask(() => countingTask(100, progress), [], {
+      useDeferredTask(() => countingTask(100, progress, 2), [], {
         timeSliceMs: 0.0001,
         signal: controller.signal,
       }),
@@ -133,7 +151,7 @@ describe('useDeferredTask() — pause / resume / cancel via the hook', () => {
   it('pause() stops progress and resume() continues it', async () => {
     const progress: number[] = [];
     const { result } = renderHook(() =>
-      useDeferredTask(() => countingTask(50, progress), [], { timeSliceMs: 0.0001 }),
+      useDeferredTask(() => countingTask(50, progress, 4), [], { timeSliceMs: 0.0001 }),
     );
 
     await waitFor(() => {
@@ -165,7 +183,7 @@ describe('useDeferredTask() — pause / resume / cancel via the hook', () => {
   it('cancel() mid-processing settles as isCancelled with no value', async () => {
     const progress: number[] = [];
     const { result } = renderHook(() =>
-      useDeferredTask(() => countingTask(100, progress), [], { timeSliceMs: 0.0001 }),
+      useDeferredTask(() => countingTask(100, progress, 2), [], { timeSliceMs: 0.0001 }),
     );
 
     await waitFor(() => {
@@ -240,13 +258,36 @@ describe('useDeferredTask() — reactivity contract', () => {
     expect(result.current.value).toBe(7);
     expect(result.current.isDone).toBe(true);
   });
+
+  it('paintIntervalMs changing restarts the task, like the other scheduling options', async () => {
+    const factory = vi.fn(() => countingTask(3, []));
+    const deps: readonly unknown[] = [];
+    const { result, rerender } = renderHook(
+      ({ paintIntervalMs }: { paintIntervalMs: number }) =>
+        useDeferredTask(factory, deps, { paintIntervalMs }),
+      { initialProps: { paintIntervalMs: 33 } },
+    );
+    await waitFor(() => {
+      expect(result.current.isDone).toBe(true);
+    });
+    expect(factory).toHaveBeenCalledTimes(1);
+
+    rerender({ paintIntervalMs: Infinity });
+    await waitFor(() => {
+      expect(factory).toHaveBeenCalledTimes(2);
+    });
+    await waitFor(() => {
+      expect(result.current.isDone).toBe(true);
+    });
+    expect(result.current.value).toBe(3);
+  });
 });
 
 describe('useDeferredTask() — unmount', () => {
   it('cancels the in-flight task on unmount and stops making further progress', async () => {
     const progress: number[] = [];
     const { result, unmount } = renderHook(() =>
-      useDeferredTask(() => countingTask(200, progress), [], { timeSliceMs: 0.0001 }),
+      useDeferredTask(() => countingTask(200, progress, 1), [], { timeSliceMs: 0.0001 }),
     );
 
     await waitFor(() => {

@@ -555,3 +555,84 @@ describe('createDeferredTask() — concurrent independent tasks', () => {
     expect(progressB).toHaveLength(60);
   });
 });
+
+describe('createDeferredTask() — the first segment waits for a yield', () => {
+  it('runs no segment, and does not even call the task factory, inside start()', async () => {
+    const progress: number[] = [];
+    const factory = vi.fn(() => countingTask(3, progress));
+    const deferred = createDeferredTask({ task: factory });
+    deferred.start();
+    expect(deferred.getSnapshot().status).toBe('processing');
+    expect(factory).not.toHaveBeenCalled();
+    expect(progress).toEqual([]);
+
+    const result = await deferred.settled;
+    expect(result).toEqual({ status: 'done', value: 3 });
+    expect(factory).toHaveBeenCalledTimes(1);
+  });
+
+  it('never calls the factory when cancelled before that first yield resolves', async () => {
+    const factory = vi.fn(() => countingTask(3, []));
+    const deferred = createDeferredTask({ task: factory });
+    deferred.start();
+    deferred.cancel();
+    const result = await deferred.settled;
+    expect(result.status).toBe('cancelled');
+    expect(factory).not.toHaveBeenCalled();
+  });
+});
+
+describe('createDeferredTask() — a task factory that throws', () => {
+  it('settles the task as an error instead of leaving it processing forever', async () => {
+    const boom = new Error('factory failed');
+    const deferred = createDeferredTask<number>({
+      task: () => {
+        throw boom;
+      },
+    });
+    deferred.start();
+    const result = await deferred.settled;
+    expect(result).toEqual({ status: 'error', error: boom });
+    expect(deferred.getSnapshot().status).toBe('error');
+  });
+});
+
+describe('createDeferredTask() — a throwing subscriber', () => {
+  it('cannot stop the task from settling, nor stop other subscribers hearing about it', async () => {
+    const reported: unknown[] = [];
+    vi.stubGlobal('reportError', (error: unknown) => reported.push(error));
+    const deferred = createDeferredTask({ task: () => countingTask(3, []) });
+    deferred.subscribe(() => {
+      throw new Error(`broken subscriber saw ${deferred.getSnapshot().status}`);
+    });
+    const seen: string[] = [];
+    deferred.subscribe(() => seen.push(deferred.getSnapshot().status));
+
+    expect(() => {
+      deferred.start();
+    }).not.toThrow();
+    const result = await deferred.settled;
+
+    expect(result).toEqual({ status: 'done', value: 3 });
+    expect(seen.at(0)).toBe('processing');
+    expect(seen.at(-1)).toBe('done');
+    expect(reported.at(-1)).toEqual(new Error('broken subscriber saw done'));
+    vi.unstubAllGlobals();
+  });
+});
+
+describe('createDeferredTask() — paused before the first segment', () => {
+  it('neither calls the factory nor runs a segment until resumed', async () => {
+    const factory = vi.fn(() => countingTask(3, []));
+    const deferred = createDeferredTask({ task: factory });
+    deferred.start();
+    deferred.pause();
+    await sleep(10);
+    expect(deferred.getSnapshot().status).toBe('paused');
+    expect(factory).not.toHaveBeenCalled();
+
+    deferred.resume();
+    const result = await deferred.settled;
+    expect(result).toEqual({ status: 'done', value: 3 });
+  });
+});

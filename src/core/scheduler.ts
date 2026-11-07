@@ -186,10 +186,8 @@ export function now(): number {
  * every item (or never).
  */
 export function normalizeTimeSliceMs(value: number | undefined): number {
-  if (typeof value !== 'number' || Number.isNaN(value) || value <= 0) {
-    return DEFAULT_TIME_SLICE_MS;
-  }
-  return value;
+  // `NaN > 0` is false, so this one comparison rejects NaN too.
+  return typeof value === 'number' && value > 0 ? value : DEFAULT_TIME_SLICE_MS;
 }
 
 /**
