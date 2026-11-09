@@ -13,23 +13,23 @@
 </style></head><body><section class="card"><h2>The trade-off: total time until results appear</h2><p class="sub">Yielding keeps the page responsive but the same work finishes later. Bar = median, tick = p75.</p>
     <svg viewBox="0 0 1200 400" role="img" aria-label="The trade-off: total time until results appear">
         <text x="234" y="70" text-anchor="end" class="label">Synchronous</text>
-        <rect x="250" y="52" width="298.11815478279823" height="28" rx="6" fill="var(--neutral)" />
-        <line x1="608.243194261719" x2="608.243194261719" y1="48" y2="84" class="p75" />
-        <text x="618.243194261719" y="71" class="value">339 ms<tspan class="muted"> · p75 407</tspan></text>
+        <rect x="250" y="52" width="283.6801204400051" height="28" rx="6" fill="var(--neutral)" />
+        <line x1="549.0739652952147" x2="549.0739652952147" y1="48" y2="84" class="p75" />
+        <text x="559.0739652952147" y="71" class="value">157 ms<tspan class="muted"> · p75 166</tspan></text>
         <text x="234" y="134" text-anchor="end" class="label">setTimeout chunks</text>
-        <rect x="250" y="116" width="627.8162498331393" height="28" rx="6" fill="var(--neutral)" />
-        <line x1="1018.5185185185185" x2="1018.5185185185185" y1="112" y2="148" class="p75" />
-        <text x="1028.5185185185185" y="135" class="value">714 ms<tspan class="muted"> · p75 874</tspan></text>
+        <rect x="250" y="116" width="588.9387096213295" height="28" rx="6" fill="var(--neutral)" />
+        <line x1="869.9972587719792" x2="869.9972587719792" y1="112" y2="148" class="p75" />
+        <text x="879.9972587719792" y="135" class="value">326 ms<tspan class="muted"> · p75 343</tspan></text>
         <text x="234" y="198" text-anchor="end" class="label">startTransition</text>
-        <rect x="250" y="180" width="354.9004707793623" height="28" rx="6" fill="var(--neutral)" />
-        <line x1="705.6220072874225" x2="705.6220072874225" y1="176" y2="212" class="p75" />
-        <text x="715.6220072874225" y="199" class="value">403 ms<tspan class="muted"> · p75 518</tspan></text>
+        <rect x="250" y="180" width="335.9559924116229" height="28" rx="6" fill="var(--neutral)" />
+        <line x1="882.6373659844552" x2="882.6373659844552" y1="176" y2="212" class="p75" />
+        <text x="892.6373659844552" y="199" class="value">186 ms<tspan class="muted"> · p75 350</tspan></text>
         <text x="234" y="262" text-anchor="end" class="label strong">react-inp-chunker</text>
-        <rect x="250" y="244" width="470.0484981060795" height="28" rx="6" fill="var(--accent)" />
-        <line x1="853.5815045859378" x2="853.5815045859378" y1="240" y2="276" class="p75" />
-        <text x="863.5815045859378" y="263" class="value">534 ms<tspan class="muted"> · p75 686</tspan></text>
+        <rect x="250" y="244" width="493.95733256751896" height="28" rx="6" fill="var(--accent)" />
+        <line x1="774.745022277912" x2="774.745022277912" y1="240" y2="276" class="p75" />
+        <text x="784.745022277912" y="263" class="value">274 ms<tspan class="muted"> · p75 291</tspan></text>
         <text x="234" y="326" text-anchor="end" class="label">scheduler.yield</text>
-        <rect x="250" y="308" width="580.182440209287" height="28" rx="6" fill="var(--neutral)" />
-        <line x1="882.3465198156877" x2="882.3465198156877" y1="304" y2="340" class="p75" />
-        <text x="892.3465198156877" y="327" class="value">660 ms<tspan class="muted"> · p75 719</tspan></text></svg>
-    <p class="setup">Chromium 141.0.7390.37 (headless) · Intel(R) Xeon(R) Processor @ 2.80GHz (2 cores) · CPU throttling 4x · 20,000 rows × 30 hash rounds · median of 30 runs per variant · 2026-11-05</p></section></body></html>
+        <rect x="250" y="308" width="729.7856185602941" height="28" rx="6" fill="var(--neutral)" />
+        <line x1="1018.5185185185186" x2="1018.5185185185186" y1="304" y2="340" class="p75" />
+        <text x="1028.5185185185187" y="327" class="value">404 ms<tspan class="muted"> · p75 426</tspan></text></svg>
+    <p class="setup">Chromium 153.0.8010.12 (headless) · Intel(R) Xeon(R) Processor @ 2.30GHz (2 cores) · CPU throttling 4x · 20,000 rows × 30 hash rounds · median of 30 runs per variant · 2026-11-09</p></section></body></html>

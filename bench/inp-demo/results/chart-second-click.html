@@ -11,26 +11,26 @@
   th:first-child,td:first-child { text-align:left } th { color:var(--muted); font-weight:600; font-size:14px }
   td { font-family:ui-monospace,monospace } td:first-child { font-family:inherit; font-weight:600 } tr.hl td { background:#fdebe5 }
 </style></head><body><section class="card"><h2>A click while the work runs: time to next frame</h2><p class="sub">The second click lands 50 ms after the first, while 20,000 rows are being scored. Bar = median, tick = p75. Green = under 200 ms, grey = over.</p>
-    <svg viewBox="0 0 1200 400" role="img" aria-label="A click while the work runs: time to next frame"><line x1="616.1791630820308" x2="616.1791630820308" y1="36" y2="370" class="threshold" />
-         <text x="622.1791630820308" y="30" class="muted">200 ms: &quot;good&quot; INP limit</text>
+    <svg viewBox="0 0 1200 400" role="img" aria-label="A click while the work runs: time to next frame"><line x1="1018.5185185185185" x2="1018.5185185185185" y1="36" y2="370" class="threshold" />
+         <text x="1024.5185185185185" y="30" class="muted">200 ms: &quot;good&quot; INP limit</text>
         <text x="234" y="70" text-anchor="end" class="label">Synchronous</text>
-        <rect x="250" y="52" width="547.5293935984917" height="28" rx="6" fill="var(--bad)" />
-        <line x1="922.3049434188428" x2="922.3049434188428" y1="48" y2="84" class="p75" />
-        <text x="932.3049434188428" y="71" class="value">299 ms<tspan class="muted"> · p75 367</tspan></text>
+        <rect x="250" y="52" width="447.0856481482824" height="28" rx="6" fill="var(--ok)" />
+        <line x1="731.0925925926374" x2="731.0925925926374" y1="48" y2="84" class="p75" />
+        <text x="741.0925925926374" y="71" class="value">116 ms<tspan class="muted"> · p75 125</tspan></text>
         <text x="234" y="134" text-anchor="end" class="label">setTimeout chunks</text>
-        <rect x="250" y="116" width="22.611563320485914" height="28" rx="6" fill="var(--ok)" />
-        <line x1="281.3083184437907" x2="281.3083184437907" y1="112" y2="148" class="p75" />
-        <text x="291.3083184437907" y="135" class="value">12 ms<tspan class="muted"> · p75 17</tspan></text>
+        <rect x="250" y="116" width="35.73611111117822" height="28" rx="6" fill="var(--ok)" />
+        <line x1="293.0370370371377" x2="293.0370370371377" y1="112" y2="148" class="p75" />
+        <text x="303.0370370371377" y="135" class="value">9 ms<tspan class="muted"> · p75 11</tspan></text>
         <text x="234" y="198" text-anchor="end" class="label">startTransition</text>
-        <rect x="250" y="180" width="603.2801711778586" height="28" rx="6" fill="var(--bad)" />
-        <line x1="1018.5185185185185" x2="1018.5185185185185" y1="176" y2="212" class="p75" />
-        <text x="1028.5185185185185" y="199" class="value">330 ms<tspan class="muted"> · p75 420</tspan></text>
+        <rect x="250" y="180" width="476.4814814815934" height="28" rx="6" fill="var(--ok)" />
+        <line x1="764.6192129629742" x2="764.6192129629742" y1="176" y2="212" class="p75" />
+        <text x="774.6192129629742" y="199" class="value">124 ms<tspan class="muted"> · p75 134</tspan></text>
         <text x="234" y="262" text-anchor="end" class="label strong">react-inp-chunker</text>
-        <rect x="250" y="244" width="21.14684666828566" height="28" rx="6" fill="var(--accent)" />
-        <line x1="279.61473981455765" x2="279.61473981455765" y1="240" y2="276" class="p75" />
-        <text x="289.61473981455765" y="263" class="value">12 ms<tspan class="muted"> · p75 16</tspan></text>
+        <rect x="250" y="244" width="24.016203703703695" height="28" rx="6" fill="var(--accent)" />
+        <line x1="283.7187499999776" x2="283.7187499999776" y1="240" y2="276" class="p75" />
+        <text x="293.7187499999776" y="263" class="value">6 ms<tspan class="muted"> · p75 9</tspan></text>
         <text x="234" y="326" text-anchor="end" class="label">scheduler.yield</text>
-        <rect x="250" y="308" width="23.98473518204355" height="28" rx="6" fill="var(--ok)" />
-        <line x1="280.34709814055117" x2="280.34709814055117" y1="304" y2="340" class="p75" />
-        <text x="290.34709814055117" y="327" class="value">13 ms<tspan class="muted"> · p75 17</tspan></text></svg>
-    <p class="setup">Chromium 141.0.7390.37 (headless) · Intel(R) Xeon(R) Processor @ 2.80GHz (2 cores) · CPU throttling 4x · 20,000 rows × 30 hash rounds · median of 30 runs per variant · 2026-11-05</p></section></body></html>
+        <rect x="250" y="308" width="37.08101851849614" height="28" rx="6" fill="var(--ok)" />
+        <line x1="293.6134259260042" x2="293.6134259260042" y1="304" y2="340" class="p75" />
+        <text x="303.6134259260042" y="327" class="value">10 ms<tspan class="muted"> · p75 11</tspan></text></svg>
+    <p class="setup">Chromium 153.0.8010.12 (headless) · Intel(R) Xeon(R) Processor @ 2.30GHz (2 cores) · CPU throttling 4x · 20,000 rows × 30 hash rounds · median of 30 runs per variant · 2026-11-09</p></section></body></html>

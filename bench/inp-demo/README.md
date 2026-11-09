@@ -45,19 +45,22 @@ What the numbers show, and what they do not:
   the work waiting for the whole job. `startTransition` keeps the _first_
   click fast, but one long render still blocks the next interaction.
 - All three time-sliced variants keep that second click near one frame.
-- Yielding has a cost: the same work takes longer to finish. `setTimeout`
-  yielding is slowest because nested timers are clamped to 4 ms.
-- Total time differences between react-inp-chunker and hand-written
-  `scheduler.yield` are within run-to-run noise here; this benchmark does not
-  show either one finishing faster.
-- In the two variants that yield with `scheduler.yield()`, the longest frame
-  stays around 100 ms or more. That is not the final sort: Chromium runs
-  `scheduler.yield()` continuations ahead of rendering, so the page paints
-  only when its own starvation guard steps in. The `setTimeout` variant does
-  the same sort, but yields through ordinary tasks and paints between slices;
-  its longest frame is that sort and the render after it. These results were
-  measured with react-inp-chunker 0.4.0. From 0.5.0 it paces its yields so the
-  page keeps painting (`paintIntervalMs`).
+- Yielding has a cost: the same work takes longer to finish than doing it in
+  one block. How much depends on how the loop yields and how often the page
+  repaints in between, not only on the clamp nested timers get.
+- The hand-written `scheduler.yield()` loop keeps the longest frame around
+  100 ms. That is not the final sort: Chromium runs `scheduler.yield()`
+  continuations ahead of rendering, so the page paints only when its own
+  starvation guard steps in. The `setTimeout` variant does the same sort but
+  yields through ordinary tasks, so it paints between slices; its longest
+  frame is that sort and the render after it.
+- react-inp-chunker (0.5.0 and later) uses `scheduler.yield()` too, but once
+  `paintIntervalMs` (33 ms) passes without a frame it yields behind rendering
+  instead, so its longest frame matches the `setTimeout` variant's while it
+  keeps `scheduler.yield()`'s throughput. In the checked-in run it also
+  finished sooner than the hand-written loop, which publishes progress through
+  a separate React render on every slice; treat that gap as specific to this
+  page, not a general claim.
 
 ## Run it
 

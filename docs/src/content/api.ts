@@ -41,6 +41,13 @@ export const CHUNKED_OPTIONS: readonly ApiRow[] = [
       'The longest stretch of work before yielding to the browser. Zero, negative or NaN fall back to 5. Changing it sets up a new run.',
   },
   {
+    name: 'paintIntervalMs',
+    type: 'number',
+    defaultValue: '33',
+    description:
+      "How long the task may keep resuming ahead of rendering. scheduler.yield() resumes work ahead of rendering in Chromium, so on its own the page would paint only about every 100 ms; once this long passes without a frame, the task yields behind rendering until one paints. It never waits on a frame, so hidden tabs and throttled iframes can't stall it. 0 always yields behind rendering; Infinity turns pacing off. Changing it sets up a new run.",
+  },
+  {
     name: 'batchSize',
     type: 'number',
     defaultValue: '1',
@@ -184,7 +191,7 @@ export const DEFERRED_ARGS: readonly ApiRow[] = [
     type: 'UseDeferredTaskOptions',
     defaultValue: '{}',
     description:
-      'timeSliceMs (default 5), batchSize (default 1, counted in segments rather than items), autoStart (default true), onSlice/onYield (segment count in place of item count) and signal, all as for useChunkedTask. No onError: skipping one step of a stateful generator mid-flight has no well-defined meaning.',
+      'timeSliceMs (default 5), paintIntervalMs (default 33), batchSize (default 1, counted in segments rather than items), autoStart (default true), onSlice/onYield (segment count in place of item count) and signal, all as for useChunkedTask. No onError: skipping one step of a stateful generator mid-flight has no well-defined meaning.',
   },
 ];
 
@@ -220,13 +227,13 @@ export const CORE_EXPORTS: readonly ApiRow[] = [
     name: 'createChunkScheduler(options)',
     type: 'ChunkScheduler<R>',
     description:
-      'The engine behind useChunkedTask. Options: items, processItem, timeSliceMs, batchSize, collectResults, onItem, onError, onSlice, onYield, signal (an AbortSignal — its reason, if any, comes through on the result and on getSnapshot()).',
+      'The engine behind useChunkedTask. Options: items, processItem, timeSliceMs, paintIntervalMs, batchSize, collectResults, onItem, onError, onSlice, onYield, signal (an AbortSignal — its reason, if any, comes through on the result and on getSnapshot()).',
   },
   {
     name: 'createDeferredTask(options)',
     type: 'DeferredTask<T>',
     description:
-      'The engine behind useDeferredTask. Options: task, timeSliceMs, batchSize, onSlice, onYield, signal (same reason passthrough as above).',
+      'The engine behind useDeferredTask. Options: task, timeSliceMs, paintIntervalMs, batchSize, onSlice, onYield, signal (same reason passthrough as above).',
   },
   {
     name: '.start() .pause() .resume() .cancel()',
@@ -266,6 +273,11 @@ export const CORE_EXPORTS: readonly ApiRow[] = [
     name: 'DEFAULT_TIME_SLICE_MS',
     type: 'number',
     description: '5.',
+  },
+  {
+    name: 'DEFAULT_PAINT_INTERVAL_MS',
+    type: 'number',
+    description: '33.',
   },
   {
     name: 'SkippedChunkItem',
