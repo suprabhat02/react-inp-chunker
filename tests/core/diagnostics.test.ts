@@ -242,7 +242,8 @@ describe('development diagnostics', () => {
     diagnostics.resumed(0, 0);
     diagnostics.check(5000, 1);
     diagnostics.sliceEnded(5, 100_000);
-    twin.warnDev();
+    diagnostics.finished(10, 'done');
+    diagnostics.warn('never shown');
 
     expect(warn).not.toHaveBeenCalled();
   });
@@ -355,5 +356,150 @@ describe('production module graph', () => {
     expect(outcome.status).toBe('done');
     expect(outcome.value).toBe(200);
     expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe('the Chrome DevTools Performance track (development only)', () => {
+  type StampFn = ReturnType<typeof vi.fn<(...args: unknown[]) => void>>;
+  let stamps: StampFn;
+  const consoleWithStamp = console as { timeStamp?: unknown };
+  let originalTimeStamp: unknown;
+
+  // Not every console has timeStamp (vitest's doesn't; Chrome's does), so
+  // install one rather than spy on one.
+  beforeEach(() => {
+    originalTimeStamp = consoleWithStamp.timeStamp;
+    stamps = vi.fn<(...args: unknown[]) => void>();
+    consoleWithStamp.timeStamp = stamps;
+  });
+
+  afterEach(() => {
+    consoleWithStamp.timeStamp = originalTimeStamp;
+  });
+
+  /** A scheduler whose items each take 10 ms of virtual time. */
+  function tenMsItems(
+    count: number,
+    options: { label?: string; timeSliceMs?: number } = {},
+  ) {
+    const clock = virtualClock();
+    return createChunkScheduler({
+      items: Array.from({ length: count }, (_, i) => i),
+      processItem: (x: number) => {
+        clock.advance(10);
+        return x;
+      },
+      timeSliceMs: options.timeSliceMs ?? 15,
+      ...(options.label !== undefined ? { label: options.label } : {}),
+    });
+  }
+
+  it("draws every slice, then the whole run around them, on the task's own track", async () => {
+    const scheduler = tenMsItems(5, { label: 'scoreRows' });
+    scheduler.start();
+    await scheduler.settled;
+
+    const track = ['scoreRows', 'react-inp-chunker'];
+    expect(stamps.mock.calls).toEqual([
+      ['items 0–1', 0, 20, ...track, 'primary'],
+      ['items 2–3', 20, 40, ...track, 'primary'],
+      // The last slice ends with the task rather than with a yield.
+      ['item 4', 40, 50, ...track, 'primary'],
+      ['scoreRows: done, 5 items in 3 slices', 0, 50, ...track, 'primary-dark'],
+    ]);
+  });
+
+  it('gives every unlabelled task a numbered track of its own, so concurrent runs never overlap', async () => {
+    const first = tenMsItems(1);
+    const second = tenMsItems(1);
+    first.start();
+    second.start();
+    await Promise.all([first.settled, second.settled]);
+
+    const tracks = new Set(stamps.mock.calls.map((call) => call[3]));
+    expect(tracks.size).toBe(2);
+    for (const track of tracks) expect(track).toMatch(/^task \d+$/);
+    expect(stamps.mock.calls.at(-1)?.[0]).toBe('task: done, 1 item in 1 slice');
+  });
+
+  it('treats a blank label as no label', async () => {
+    const scheduler = tenMsItems(1, { label: '   ' });
+    scheduler.start();
+    await scheduler.settled;
+    expect(stamps.mock.calls.at(-1)?.[3]).toMatch(/^task \d+$/);
+  });
+
+  it('colours the run by how it ended: cancelled, and failed, for a generator task too', async () => {
+    const clock = virtualClock();
+    const holder: { task?: ReturnType<typeof createChunkScheduler<number, number>> } = {};
+    holder.task = createChunkScheduler({
+      items: [0, 1, 2, 3],
+      processItem: (x: number) => {
+        clock.advance(10);
+        return x;
+      },
+      timeSliceMs: 15,
+      label: 'cancelled',
+      onSlice: () => {
+        queueMicrotask(() => holder.task?.cancel());
+      },
+    });
+    holder.task.start();
+    await holder.task.settled;
+    expect(stamps.mock.calls.at(-1)).toEqual([
+      'cancelled: cancelled, 2 items in 1 slice',
+      0,
+      20,
+      'cancelled',
+      'react-inp-chunker',
+      'secondary',
+    ]);
+
+    stamps.mockClear();
+    function* failing(): DeferredGenerator<number> {
+      clock.advance(10);
+      yield;
+      throw new Error('bad segment');
+    }
+    const failed = createDeferredTask({ task: failing, label: 'parse' });
+    failed.start();
+    await failed.settled;
+    expect(stamps.mock.calls.at(-1)).toEqual([
+      'parse: error, 1 segment in 1 slice',
+      // The same virtual clock as the cancelled run above, which ended at 20.
+      20,
+      30,
+      'parse',
+      'react-inp-chunker',
+      'error',
+    ]);
+  });
+
+  it('draws nothing for a task cancelled before its first slice', async () => {
+    const scheduler = tenMsItems(3, { label: 'never ran' });
+    scheduler.start();
+    scheduler.cancel();
+    await scheduler.settled;
+    expect(stamps).not.toHaveBeenCalled();
+  });
+
+  it('carries on silently where console.timeStamp does not exist', async () => {
+    consoleWithStamp.timeStamp = undefined;
+    const scheduler = tenMsItems(2, { label: 'no devtools' });
+    scheduler.start();
+    await expect(scheduler.settled).resolves.toMatchObject({ status: 'done' });
+  });
+
+  it("prefixes the task's development warnings with its label", async () => {
+    const scheduler = createChunkScheduler({
+      items: [1],
+      processItem: (x: number) => Promise.resolve(x),
+      label: 'importRows',
+    });
+    scheduler.start();
+    await scheduler.settled;
+    expect(messages()[0]).toMatch(
+      /^\[react-inp-chunker\] "importRows": processItem returned a Promise/,
+    );
   });
 });

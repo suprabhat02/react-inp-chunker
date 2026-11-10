@@ -20,22 +20,17 @@ const NOTHING: Diagnostics = {
   check: () => undefined,
   sliceEnded: () => undefined,
   resumed: () => undefined,
+  finished: () => undefined,
+  warn: () => undefined,
 };
 
 export function createDiagnostics(): Diagnostics {
   return NOTHING;
 }
 
-export function warnDev(): void {
-  // No-op: every call site passes a message string built from values that
-  // only matter for the warning text itself, so there's nothing to do with
-  // the argument here — dropping it is what makes this (and the string
-  // concatenation at every call site) disappear under tree-shaking.
-}
-
 /**
  * Fails the build if this stops being a drop-in replacement for the real
  * module — a missing export, or a signature that drifted.
  */
-const _sameShape: typeof RealDiagnostics = { isDevelopment, createDiagnostics, warnDev };
+const _sameShape: typeof RealDiagnostics = { isDevelopment, createDiagnostics };
 export type { _sameShape };

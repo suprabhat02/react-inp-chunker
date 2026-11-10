@@ -4,6 +4,42 @@ All notable changes to this package are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/); this package
 follows [Semantic Versioning](https://semver.org/).
 
+## 0.6.0 — 2026-11-10
+
+See every chunked task in the Chrome DevTools Performance panel. Development
+only: production builds are byte-for-byte the size they were.
+
+### Added
+
+- **A DevTools Performance track.** In development, each task draws itself in a
+  `react-inp-chunker` track group beside React's own tracks: one entry per
+  slice (`items 372–740`), nested under one for the whole run that says how it
+  ended and how much it did (`scoreRows: done, 20,000 items in 54 slices`),
+  coloured by outcome. Recording a profile now shows exactly where a task
+  yielded and what the browser did in between. Drawn with the extended
+  `console.timeStamp()` that React 19.2 uses for its tracks, rather than
+  `performance.measure()`: a measure would stay in the page's timeline buffer,
+  which nothing empties, and be readable by any script that looks — a time
+  stamp leaves nothing behind. Checked against a real Chromium trace. A task
+  cancelled before it did any work draws nothing.
+- **`label`** on both hooks and both core engines: names the task's track and
+  prefixes its development warnings (`"importRows": processItem returned a
+Promise…`), so with several tasks running you can tell which one is which.
+  Unlabelled tasks each get a numbered track of their own. Ignored in
+  production builds.
+
+### Changed
+
+- Size: `useChunkedTask` 2.39 kB → 2.41 kB, `useDeferredTask` 2.18 kB →
+  2.19 kB (passing `label` through); `createChunkScheduler` unchanged at
+  1.81 kB. The track itself adds nothing to production builds.
+
+### Removed
+
+- The internal `warnDev()` helper, which nothing called any more once the
+  misuse warnings started carrying a task's label. It was never exported from
+  the package.
+
 ## 0.5.0 — 2026-11-07
 
 Scheduling that plays fair with rendering, and several ways a task could hang

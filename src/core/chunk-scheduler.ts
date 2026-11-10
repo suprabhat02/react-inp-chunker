@@ -6,7 +6,7 @@ import {
   isTerminal,
   transition,
 } from './chunk-machine.js';
-import { createDiagnostics, isDevelopment, warnDev } from './diagnostics.js';
+import { createDiagnostics, isDevelopment } from './diagnostics.js';
 import { notifyAll, reportUncaught } from './listeners.js';
 import { createPacer, normalizePaintIntervalMs } from './pacer.js';
 import {
@@ -22,6 +22,14 @@ export interface ChunkSchedulerOptions<T, R> {
   readonly processItem: (item: T, index: number) => R;
   /** Max ms of uninterrupted work before yielding. Default 5. */
   readonly timeSliceMs?: number;
+  /**
+   * A name for this task, used only while developing: it names the task's
+   * track in the Chrome DevTools Performance panel and prefixes its
+   * development warnings, so with several tasks running you can tell them
+   * apart. Compiled out of production builds along with the rest of the
+   * development tooling, so it is never sent anywhere or kept at runtime.
+   */
+  readonly label?: string;
   /**
    * How long, in ms, the task may keep resuming ahead of rendering. Default
    * 33, about 30 frames a second.
@@ -236,9 +244,10 @@ export function createChunkScheduler<T, R>(
   const batchSize = normalizeBatchSize(options.batchSize);
   const collectResults = options.collectResults ?? true;
   const total = items.length;
+  const diagnostics = createDiagnostics('item', batchSize, options.label);
 
   if (isDevelopment && !collectResults && onItem === undefined) {
-    warnDev(
+    diagnostics.warn(
       'collectResults is false and no onItem was passed — every result will be computed and then discarded, with nothing to retrieve once the task settles. Pass onItem to consume results as they finish, or drop collectResults: false if you need the final array.',
     );
   }
@@ -247,7 +256,6 @@ export function createChunkScheduler<T, R>(
   // it walks `navigator.scheduling.isInputPending` through optional calls,
   // which is wasted work on every item of a million-item task.
   const inputPending = resolveInputPending();
-  const diagnostics = createDiagnostics('item', batchSize);
   let warnedAboutAsyncResult = false;
 
   let machineState: ChunkMachineState = initialChunkState;
@@ -347,6 +355,7 @@ export function createChunkScheduler<T, R>(
     /* v8 ignore next */
     if (settledFlag) return;
     settledFlag = true;
+    if (isDevelopment) diagnostics.finished(now(), result.status);
     detachSignal();
     settleFn(result);
   }
@@ -484,7 +493,7 @@ export function createChunkScheduler<T, R>(
           }
           if (isDevelopment && !warnedAboutAsyncResult && isThenable(result)) {
             warnedAboutAsyncResult = true;
-            warnDev(
+            diagnostics.warn(
               'processItem returned a Promise. createChunkScheduler calls it synchronously and never awaits the result, so results will contain unresolved Promise objects instead of the values they resolve to. Resolve the value before returning it, or chunk the async work a different way.',
             );
           }

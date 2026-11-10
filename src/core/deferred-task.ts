@@ -45,6 +45,14 @@ export interface DeferredTaskOptions<T> {
   /** Max ms of uninterrupted work before yielding. Default 5. */
   readonly timeSliceMs?: number;
   /**
+   * A name for this task, used only while developing: it names the task's
+   * track in the Chrome DevTools Performance panel and prefixes its
+   * development warnings, so with several tasks running you can tell them
+   * apart. Compiled out of production builds along with the rest of the
+   * development tooling, so it is never sent anywhere or kept at runtime.
+   */
+  readonly label?: string;
+  /**
    * How long, in ms, the task may keep resuming ahead of rendering. Default
    * 33; `Infinity` turns it off, `0` makes every yield an ordinary task. See
    * the identical option on `createChunkScheduler`.
@@ -148,7 +156,7 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
   const batchSize = normalizeBatchSize(options.batchSize);
   // Resolved once per task rather than per segment; see chunk-scheduler.ts.
   const inputPending = resolveInputPending();
-  const diagnostics = createDiagnostics('segment', batchSize);
+  const diagnostics = createDiagnostics('segment', batchSize, options.label);
 
   let machineState: ChunkMachineState = initialChunkState;
   let loopStarted = false;
@@ -236,6 +244,7 @@ export function createDeferredTask<T>(options: DeferredTaskOptions<T>): Deferred
     /* v8 ignore next */
     if (settledFlag) return;
     settledFlag = true;
+    if (isDevelopment) diagnostics.finished(now(), result.status);
     detachSignal();
     settleFn(result);
   }

@@ -17,6 +17,13 @@ export interface UseChunkedTaskOptions<T, R> {
   /** Max ms of uninterrupted work before yielding. Default 5. */
   readonly timeSliceMs?: number;
   /**
+   * A name for this task, used only while developing: it names the task's
+   * track in the Chrome DevTools Performance panel and prefixes its
+   * development warnings. Compiled out of production builds. Changing it
+   * sets up a new run, so pass a constant.
+   */
+  readonly label?: string;
+  /**
    * How long, in ms, the task may keep resuming ahead of rendering. Default
    * 33, about 30 frames a second: once that long has passed since the last
    * frame, the task yields behind rendering until the next one paints.
@@ -162,6 +169,7 @@ export function useChunkedTask<T, R>(
     onSlice,
     onYield,
     signal,
+    label,
   } = options ?? {};
 
   // Stable identity, always runs the latest processItem/onItem passed this
@@ -218,6 +226,7 @@ export function useChunkedTask<T, R>(
       ...(batchSize !== undefined ? { batchSize } : {}),
       ...(collectResults !== undefined ? { collectResults } : {}),
       ...(signal !== undefined ? { signal } : {}),
+      ...(label !== undefined ? { label } : {}),
     });
     controller.replace(scheduler);
     if (autoStart) scheduler.start();
@@ -241,6 +250,7 @@ export function useChunkedTask<T, R>(
     collectResults,
     autoStart,
     signal,
+    label,
     controller,
   ]);
 

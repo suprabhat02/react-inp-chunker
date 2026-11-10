@@ -343,3 +343,26 @@ describe('useDeferredTask() — batchSize', () => {
     expect(seenWhileDone.every((value) => value === 42)).toBe(true);
   });
 });
+
+describe('useDeferredTask() — label', () => {
+  it('names the task’s DevTools track with the label (development only)', async () => {
+    const stamps = vi.fn<(...args: unknown[]) => void>();
+    const consoleWithStamp = console as { timeStamp?: unknown };
+    const original = consoleWithStamp.timeStamp;
+    consoleWithStamp.timeStamp = stamps;
+    try {
+      const deps: readonly unknown[] = [];
+      const { result } = renderHook(() =>
+        useDeferredTask(() => countingTask(2, []), deps, { label: 'renderFrames' }),
+      );
+      await waitFor(() => {
+        expect(result.current.isDone).toBe(true);
+      });
+      const run = stamps.mock.calls.at(-1);
+      expect(run?.[0]).toMatch(/^renderFrames: done, \d+ segments? in \d+ slices?$/);
+      expect(run?.[3]).toBe('renderFrames');
+    } finally {
+      consoleWithStamp.timeStamp = original;
+    }
+  });
+});

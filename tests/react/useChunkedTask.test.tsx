@@ -452,3 +452,26 @@ describe('useChunkedTask() — batchSize and collectResults', () => {
     expect(seenWhileDone.every((results) => results !== undefined)).toBe(true);
   });
 });
+
+describe('useChunkedTask() — label', () => {
+  it('names the task’s DevTools track with the label (development only)', async () => {
+    const stamps = vi.fn<(...args: unknown[]) => void>();
+    const consoleWithStamp = console as { timeStamp?: unknown };
+    const original = consoleWithStamp.timeStamp;
+    consoleWithStamp.timeStamp = stamps;
+    try {
+      const items = [1, 2, 3];
+      const { result } = renderHook(() =>
+        useChunkedTask(items, (x: number) => x, { label: 'scoreRows' }),
+      );
+      await waitFor(() => {
+        expect(result.current.isDone).toBe(true);
+      });
+      const run = stamps.mock.calls.at(-1);
+      expect(run?.[0]).toBe('scoreRows: done, 3 items in 1 slice');
+      expect(run?.[3]).toBe('scoreRows');
+    } finally {
+      consoleWithStamp.timeStamp = original;
+    }
+  });
+});

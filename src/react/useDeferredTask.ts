@@ -14,6 +14,13 @@ export interface UseDeferredTaskOptions {
   /** Max ms of uninterrupted work before yielding. Default 5. */
   readonly timeSliceMs?: number;
   /**
+   * A name for this task, used only while developing: it names the task's
+   * track in the Chrome DevTools Performance panel and prefixes its
+   * development warnings. Compiled out of production builds. Changing it
+   * sets up a new run, so pass a constant.
+   */
+  readonly label?: string;
+  /**
    * How long, in ms, the task may keep resuming ahead of rendering. Default
    * 33; `Infinity` turns it off, `0` always yields behind rendering. See the
    * identical option on `useChunkedTask`. Changing it sets up a new run.
@@ -111,6 +118,7 @@ export function useDeferredTask<T>(
     onSlice,
     onYield,
     signal,
+    label,
   } = options ?? {};
 
   // Stable identity, always runs the latest `task` passed this render —
@@ -142,6 +150,7 @@ export function useDeferredTask<T>(
         ...(paintIntervalMs !== undefined ? { paintIntervalMs } : {}),
         ...(batchSize !== undefined ? { batchSize } : {}),
         ...(signal !== undefined ? { signal } : {}),
+        ...(label !== undefined ? { label } : {}),
       });
       controller.replace(deferredTask);
       if (autoStart) deferredTask.start();
@@ -157,8 +166,17 @@ export function useDeferredTask<T>(
     // reactive dependency set rather than omitted by oversight. `deps` is a
     // caller-supplied array, the same pattern (and the same reason it can't
     // be statically verified) as useMemo/useEffect's own deps parameter.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [...deps, timeSliceMs, paintIntervalMs, batchSize, autoStart, signal, controller],
+    [
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      ...deps,
+      timeSliceMs,
+      paintIntervalMs,
+      batchSize,
+      autoStart,
+      signal,
+      label,
+      controller,
+    ],
   );
 
   const start = useCallback(() => controller.getCurrent()?.start(), [controller]);

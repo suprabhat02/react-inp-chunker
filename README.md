@@ -141,6 +141,30 @@ blocks for over 50 ms gets a warning naming its index, and work cheap enough tha
 the clock dominates gets a concrete `batchSize` suggestion. Both are compiled out
 of production builds.
 
+### See it in Chrome DevTools
+
+In development, every task draws itself in the Chrome DevTools **Performance**
+panel, in a `react-inp-chunker` track group beside React's own tracks: one entry
+per slice, nested under one for the whole run that says how it ended (`done`,
+`cancelled`, `error`) and how much it did. Record a profile while the work runs
+and you can see exactly where it yielded and what the browser did in between.
+
+Give a task a `label` and its track — and its development warnings — carry that
+name, so you can tell several tasks apart:
+
+```ts
+const task = useChunkedTask(rows, scoreRow, { label: 'scoreRows' });
+// Performance panel → react-inp-chunker → scoreRows
+//   "scoreRows: done, 20,000 items in 54 slices"
+//     "items 0–371"  "items 372–740"  …
+```
+
+It is drawn with `console.timeStamp()`, the same API React uses for its tracks,
+so it leaves nothing in the page's performance timeline for other scripts to
+read, and costs next to nothing when DevTools isn't recording. Browsers without
+the extension simply don't show it. None of it — `label` included — exists in
+production builds.
+
 ### Work that isn't a list: `useDeferredTask`
 
 For a long computation that isn't one function over an array, write it as a
@@ -214,8 +238,8 @@ Dropping any of these is a breaking change; [SUPPORT.md](SUPPORT.md) has the
 versioning rules.
 
 **Size**, minified and brotli-compressed, with no dependencies of its own:
-`useChunkedTask` 2.39 kB, `useDeferredTask` 2.18 kB, `createChunkScheduler`
-without React 1.81 kB, everything together 3.01 kB. CI fails if a change pushes
+`useChunkedTask` 2.41 kB, `useDeferredTask` 2.19 kB, `createChunkScheduler`
+without React 1.81 kB, everything together 3.03 kB. CI fails if a change pushes
 any of them over budget.
 
 Bundlers that set the `production` export condition — webpack, Vite, Rspack,
