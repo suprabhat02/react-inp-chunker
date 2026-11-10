@@ -41,6 +41,12 @@ export const CHUNKED_OPTIONS: readonly ApiRow[] = [
       'The longest stretch of work before yielding to the browser. Zero, negative or NaN fall back to 5. Changing it sets up a new run.',
   },
   {
+    name: 'label',
+    type: 'string',
+    description:
+      "Development only. Names the task's track in the Chrome DevTools Performance panel (one entry per slice, nested under one for the whole run) and prefixes its development warnings. Compiled out of production builds. Changing it sets up a new run.",
+  },
+  {
     name: 'paintIntervalMs',
     type: 'number',
     defaultValue: '33',
@@ -191,7 +197,7 @@ export const DEFERRED_ARGS: readonly ApiRow[] = [
     type: 'UseDeferredTaskOptions',
     defaultValue: '{}',
     description:
-      'timeSliceMs (default 5), paintIntervalMs (default 33), batchSize (default 1, counted in segments rather than items), autoStart (default true), onSlice/onYield (segment count in place of item count) and signal, all as for useChunkedTask. No onError: skipping one step of a stateful generator mid-flight has no well-defined meaning.',
+      'timeSliceMs (default 5), paintIntervalMs (default 33), label, batchSize (default 1, counted in segments rather than items), autoStart (default true), onSlice/onYield (segment count in place of item count) and signal, all as for useChunkedTask. No onError: skipping one step of a stateful generator mid-flight has no well-defined meaning.',
   },
 ];
 
@@ -227,13 +233,13 @@ export const CORE_EXPORTS: readonly ApiRow[] = [
     name: 'createChunkScheduler(options)',
     type: 'ChunkScheduler<R>',
     description:
-      'The engine behind useChunkedTask. Options: items, processItem, timeSliceMs, paintIntervalMs, batchSize, collectResults, onItem, onError, onSlice, onYield, signal (an AbortSignal — its reason, if any, comes through on the result and on getSnapshot()).',
+      'The engine behind useChunkedTask. Options: items, processItem, timeSliceMs, paintIntervalMs, label, batchSize, collectResults, onItem, onError, onSlice, onYield, signal (an AbortSignal — its reason, if any, comes through on the result and on getSnapshot()).',
   },
   {
     name: 'createDeferredTask(options)',
     type: 'DeferredTask<T>',
     description:
-      'The engine behind useDeferredTask. Options: task, timeSliceMs, paintIntervalMs, batchSize, onSlice, onYield, signal (same reason passthrough as above).',
+      'The engine behind useDeferredTask. Options: task, timeSliceMs, paintIntervalMs, label, batchSize, onSlice, onYield, signal (same reason passthrough as above).',
   },
   {
     name: '.start() .pause() .resume() .cancel()',
